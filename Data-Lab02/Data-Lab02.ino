@@ -37,174 +37,174 @@ int turn_spd = 100;
 int cw = 1; //go clockwise
 int ccw = -1; //go counter-clockwise
 int currentAngle = 0;
-int currentX=0;
-int currentY=0;
+int currentX = 0;
+int currentY = 0;
 
-void goToAngle(int destination){
-  if(destination <0){
-    destination = destination+360;
+void goToAngle(int destination) {
+  if (destination < 0) {
+    destination = destination + 360;
   }
-  int angle=destination-currentAngle;
-  float delayTime=angle*TURN_CALIBRATION;
-  if(angle>0){
-    Robot.motorsWrite(turn_spd,-turn_spd);
+  int angle = destination - currentAngle;
+  float delayTime = angle * TURN_CALIBRATION;
+  if (angle > 0) {
+    Robot.motorsWrite(turn_spd, -turn_spd);
     delay(delayTime);
-  }else{
-    Robot.motorsWrite(-turn_spd,turn_spd);
-    delay(-delayTime);    
+  } else {
+    Robot.motorsWrite(-turn_spd, turn_spd);
+    delay(-delayTime);
   }
   Robot.motorsStop();
   currentAngle = destination;
-  if(currentAngle <0){
+  if (currentAngle < 0) {
     currentAngle = currentAngle + 360;
   }
 }
 
-void goToPoint(int destX, int destY){
-  int yLength = destY-currentY;
-  int xLength = destX-currentX;
-  float hyp = sqrt(yLength*yLength+xLength*xLength);
-  int angle = (int)(atan2(yLength,xLength)*180/M_PI);
-//  if(yLength <0){
-//    angle=-1*angle;
-//  }
-  Robot.text(angle,5,115);
+void goToPoint(int destX, int destY) {
+  int yLength = destY - currentY;
+  int xLength = destX - currentX;
+  float hyp = sqrt(yLength * yLength + xLength * xLength);
+  int angle = (int)(atan2(yLength, xLength) * 180 / M_PI);
+  //  if(yLength <0){
+  //    angle=-1*angle;
+  //  }
+  Robot.text(angle, 5, 115);
   goToAngle(angle);
   delay(100);
-  float delayTime = hyp*LENGTH_CALIBRATION;
-  Robot.motorsWrite(motor_spd,motor_spd);
+  float delayTime = hyp * LENGTH_CALIBRATION;
+  Robot.motorsWrite(motor_spd, motor_spd);
   delay(delayTime);
   Robot.motorsStop();
   currentX = destX;
   currentY = destY;
 }
 
-void driveCircle(int direct){
-  if(direct==cw){//clockwise circel
-    Robot.motorsWrite(motor_spd,0.75*motor_spd);
-  }else{//counter clockwise circle
-    Robot.motorsWrite(0.75*motor_spd,motor_spd);
+void driveCircle(int direct) {
+  if (direct == cw) { //clockwise circel
+    Robot.motorsWrite(motor_spd, 0.75 * motor_spd);
+  } else { //counter clockwise circle
+    Robot.motorsWrite(0.75 * motor_spd, motor_spd);
   }
   delay(CIRCLE_TIME);
   Robot.motorsStop();
 }
 
-void driveSquare(){
-  goToPoint(0,3);
+void driveSquare() {
+  goToPoint(0, 3);
   delay(100);
-  goToPoint(3,3);
+  goToPoint(3, 3);
   delay(100);
-  goToPoint(3,0);
+  goToPoint(3, 0);
   delay(100);
-  goToPoint(0,0);
+  goToPoint(0, 0);
   delay(100);
 }
 
-void driveFigureEight(){
+void driveFigureEight() {
   driveCircle(cw);
   driveCircle(ccw);
 }
 
-int getNumber(){
+int getNumber() {
   int leave = -1;
-  int output =0;
-  while(leave){
+  int output = 0;
+  while (leave) {
     irrecv.resume();
-    while(!irrecv.decode(&results)){
-      Robot.text("input a number",5,55);
+    while (!irrecv.decode(&results)) {
+      Robot.text("input a number", 5, 55);
     }
-    switch(results.value){
-      case(IR_CODE_0):
-        output = output*10;
-      break;
-      case(IR_CODE_1):
-        output = output*10+1;
-      break;
-      case(IR_CODE_2):
-        output = output*10+2;
-      break;
-      case(IR_CODE_3):
-        output = output*10+3;
-      break;
-      case(IR_CODE_4):
-        output = output*10+4;
-      break;
-      case(IR_CODE_5):
-        output = output*10+5;
-      break;
-      case(IR_CODE_6):
-        output = output*10+6;
-      break;
-      case(IR_CODE_7):
-        output = output*10+7;
-      break;
-      case(IR_CODE_8):
-        output = output*10+8;
-      break;
-      case(IR_CODE_9):
-        output = output*10+9;
-      break;
-      case(IR_CODE_ENTER):
-        leave=1;
-        Robot.text("leaving",5,75);
-      break;
-      case(IR_CODE_BACK):
-        output=output*-1;
+    switch (results.value) {
+      case (IR_CODE_0):
+        output = output * 10;
+        break;
+      case (IR_CODE_1):
+        output = output * 10 + 1;
+        break;
+      case (IR_CODE_2):
+        output = output * 10 + 2;
+        break;
+      case (IR_CODE_3):
+        output = output * 10 + 3;
+        break;
+      case (IR_CODE_4):
+        output = output * 10 + 4;
+        break;
+      case (IR_CODE_5):
+        output = output * 10 + 5;
+        break;
+      case (IR_CODE_6):
+        output = output * 10 + 6;
+        break;
+      case (IR_CODE_7):
+        output = output * 10 + 7;
+        break;
+      case (IR_CODE_8):
+        output = output * 10 + 8;
+        break;
+      case (IR_CODE_9):
+        output = output * 10 + 9;
+        break;
+      case (IR_CODE_ENTER):
+        leave = 1;
+        Robot.text("leaving", 5, 75);
+        break;
+      case (IR_CODE_BACK):
+        output = output * -1;
+        break;
+    }
+    Robot.debugPrint(output, 5, 85);
+    if (leave == 1) {
       break;
     }
-    Robot.debugPrint(output,5,85);
-    if(leave==1){
-      break;
-    }
-   }
+  }
   return output;
 }
 
 
-void chooseMode(){
-  switch(results.value){
+void chooseMode() {
+  switch (results.value) {
     //go to angle
-    case(IR_CODE_UP):
-    {
-     Robot.text("Angle mode",5,45);
-     int angle=getNumber();
-     goToAngle(angle);
-     Robot.clearScreen();
-    }
-    break;
-    
-    case(IR_CODE_RIGHT):
-    {
-      Robot.text("Point mode",5,45);
-      int x=getNumber();
-      int y=getNumber();
-      goToPoint(x,y);
-      Robot.clearScreen();
-    }
+    case (IR_CODE_UP):
+      {
+        Robot.text("Angle mode", 5, 45);
+        int angle = getNumber();
+        goToAngle(angle);
+        Robot.clearScreen();
+      }
       break;
 
-     case(IR_CODE_DOWN):
-     {
-      Robot.text("Square mode",5,45);
-      driveSquare();
-      Robot.clearScreen();
-     }
+    case (IR_CODE_RIGHT):
+      {
+        Robot.text("Point mode", 5, 45);
+        int x = getNumber();
+        int y = getNumber();
+        goToPoint(x, y);
+        Robot.clearScreen();
+      }
       break;
 
-     case(IR_CODE_LEFT):
-     {
-      Robot.text("Circle mode",5,45);
-      driveCircle(cw);
-      Robot.clearScreen();
-     }
+    case (IR_CODE_DOWN):
+      {
+        Robot.text("Square mode", 5, 45);
+        driveSquare();
+        Robot.clearScreen();
+      }
       break;
 
-     case(IR_CODE_SETUP):
-     {
-      Robot.text("Figure eight mode",5,45);
-      driveFigureEight();
-      Robot.clearScreen();
-     }
+    case (IR_CODE_LEFT):
+      {
+        Robot.text("Circle mode", 5, 45);
+        driveCircle(cw);
+        Robot.clearScreen();
+      }
+      break;
+
+    case (IR_CODE_SETUP):
+      {
+        Robot.text("Figure eight mode", 5, 45);
+        driveFigureEight();
+        Robot.clearScreen();
+      }
       break;
   }
 }
@@ -213,7 +213,7 @@ void chooseMode(){
 
 
 void setup() {
-  // initialize the Robot, SD card, display, and speaker 
+  // initialize the Robot, SD card, display, and speaker
   Robot.begin();
   Robot.beginTFT();
   Robot.beginSD();
@@ -225,17 +225,17 @@ void setup() {
 
 
 void loop() {
-  Robot.text("Up arrow angle",5,1);
-  Robot.text("Left arrow circle",5,9);
-  Robot.text("Down arrow square",5,17);
-  Robot.text("Right arrow point",5,26);
-  Robot.text("Setup key eight",5,35);
-  Robot.text(currentX,5,130);
-  Robot.text(currentY,5,140);
-  Robot.text(currentAngle,5,150);
+  Robot.text("Up arrow angle", 5, 1);
+  Robot.text("Left arrow circle", 5, 9);
+  Robot.text("Down arrow square", 5, 17);
+  Robot.text("Right arrow point", 5, 26);
+  Robot.text("Setup key eight", 5, 35);
+  Robot.text(currentX, 5, 130);
+  Robot.text(currentY, 5, 140);
+  Robot.text(currentAngle, 5, 150);
   if (irrecv.decode(&results)) {
-      chooseMode();
-      irrecv.resume(); // resume receiver
+    chooseMode();
+    irrecv.resume(); // resume receiver
   }
 }
 
