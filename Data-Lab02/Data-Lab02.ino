@@ -22,9 +22,9 @@
 #define IR_CODE_8 16619623 // 8 BUTTON
 #define IR_CODE_9 16603303 // 9 BUTTON
 #define IR_CODE_ENTER 16617583 // ENTER BUTTON
-#define TURN_CALIBRATION 7.4
+#define TURN_CALIBRATION 4.7
 #define LENGTH_CALIBRATION 800
-#define CIRCLE_TIME 6500
+#define CIRCLE_TIME 11500
 #define IR_CODE_BACK 16609423 // back button
 
 int RECV_PIN = TKD1; // the pin the IR receiver is connected to
@@ -33,7 +33,7 @@ decode_results results; // container for received IR codes
 int move_time = 500;
 int turn_time = 250;
 int motor_spd = 200;
-int turn_spd = 100;
+int turn_spd = 150;
 int cw = 1; //go clockwise
 int ccw = -1; //go counter-clockwise
 int currentAngle = 0;
