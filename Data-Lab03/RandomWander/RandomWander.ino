@@ -38,6 +38,41 @@ void goToAngle(int angle) {
   Robot.motorsStop();
 }
 
+void selectMode() {
+  Robot.text("Up for shy", 5, 5);
+  Robot.text("Left for aggressive", 5, 15);
+  Robot.text("Down for random wander", 5, 25);
+  Robot.text("Right for random obstacle", 5, 35);
+  int button = Robot.keyboardRead();
+  switch (button) {
+    case BUTTON_UP:
+      while (1) {
+        Robot.clearScreen();
+        //shyKid();
+      }
+      break;
+    case BUTTON_LEFT:
+      while (1) {
+        Robot.clearScreen();
+        //aggressiveKid();
+      }
+      break;
+    case BUTTON_DOWN:
+      while (1) {
+        Robot.clearScreen();
+        randomWander();
+      }
+      break;
+    case BUTTON_RIGHT:
+      while (1) {
+        Robot.clearScreen();
+        //randomObstacle();
+      }
+      break;
+  }
+
+}
+
 void setup() {
   // put your setup code here, to run once:
   Robot.begin();
@@ -50,7 +85,7 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  randomWander();
+  selectMode();
   delay(WAIT_TIME);
-   Robot.clearScreen();
+  Robot.clearScreen();
 }
