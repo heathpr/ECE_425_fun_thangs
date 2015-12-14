@@ -52,4 +52,5 @@ void loop() {
   // put your main code here, to run repeatedly:
   randomWander();
   delay(WAIT_TIME);
+   Robot.clearScreen();
 }
