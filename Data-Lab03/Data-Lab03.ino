@@ -24,6 +24,8 @@
 #define MOVE_TIME 250
 #define TRIGGER_RANGE 5
 #define MIN_MOTOR_SPEED 125
+#define INCREMENT_FORWARD 50
+#define NUMBER_ITERATIONS 20
 
 double checkSonarPin(int pin);
 double checkIRPin(int pin);
@@ -110,13 +112,7 @@ double checkSonarPin(int pin) {
     Robot.digitalWrite(pin, LOW);//set pin low first again
     pinMode(pin, INPUT);//set pin as input with duration as reception time
     value = pulseIn(pin, HIGH);//measures how long the pin is high
-    //    if (value > MIN_SONAR) {
-    //    Robot.debugPrint(value, 5, 9);
     value = .0071 * value - 1.4278;
-    //    Robot.debugPrint(value, 5, 1);
-    //    } else {
-    //      value = 0;
-    //    }
     output += value;
     delay(5);
   }
@@ -133,11 +129,7 @@ double checkIRPin(int pin) {
   for (int i = 0; i < NUM_SAMPLES; i++) {
     int value;
     value = Robot.analogRead(pin);
-    //    if (value < MAX_IR) {
     value = 2517.3 / value - 1.7528;
-    //    } else {
-    //      value = 0;
-    //    }
     output += value;
     delay(5);
   }
@@ -151,21 +143,6 @@ double checkIRPin(int pin) {
 
 void movement(double mag, double y) {
   float move_spd = (5 - mag) * MOTOR_SPEED * MOVEMENT_CALIBRATION;
-  //  if (sqrt(y * y) < 1) {
-  //    Robot.motorsWrite(-move_spd, -move_spd);
-  //    Robot.debugPrint(-move_spd, 5, 26);
-  //    Robot.debugPrint(-move_spd, 5, 35);
-  //  } else if (y > 0) {
-  //
-  //    Robot.motorsWrite(-move_spd * MOVEMENT_CALIBRATION * (5-y) * ANGLE_THING, -move_spd * MOVEMENT_CALIBRATION / (ANGLE_THING * (5-y)));
-  //    Robot.debugPrint(-move_spd  * MOVEMENT_CALIBRATION * y * ANGLE_THING, 5, 26);
-  //    Robot.debugPrint(-move_spd * MOVEMENT_CALIBRATION / (y * ANGLE_THING), 5, 35);
-  //  } else {
-  //    y=-y;
-  //    Robot.motorsWrite(-move_spd * MOVEMENT_CALIBRATION / (ANGLE_THING * (5-y)), -move_spd * MOVEMENT_CALIBRATION * (5-y) * ANGLE_THING);
-  //    Robot.debugPrint(-move_spd * MOVEMENT_CALIBRATION / (ANGLE_THING *(5-y)), 5, 26);
-  //    Robot.debugPrint(-move_spd * MOVEMENT_CALIBRATION * (5-y) * ANGLE_THING, 5, 35);
-  //  }
   Robot.motorsWrite(-move_spd + y * ANGLE_CALIBRATION, -move_spd - y * ANGLE_CALIBRATION);
   Robot.debugPrint(-move_spd + y * ANGLE_CALIBRATION, 5, 26);
   Robot.debugPrint(-move_spd - y * ANGLE_CALIBRATION, 5, 35);
@@ -173,25 +150,22 @@ void movement(double mag, double y) {
   Robot.motorsStop();
 }
 
-void randomWander() {
-  int motorSpeed = random(MIN_MOTOR_SPEED, MAX_MOTOR_SPEED);
-  int forwardTime = random(MAX_FORWARD_TIME);
-  int angle = random(-MAX_ANGLE, MAX_ANGLE);
-  Robot.text(motorSpeed, 5, 5);
-  Robot.text(forwardTime, 5, 15);
-  Robot.text(angle, 5, 50);
-  //change angle
-  goToAngle(angle);
+void randomWander(int angleIterations) {
+  int angle = 0;
+  if (angleIterations % NUMBER_ITERATIONS == 0) {
+    angle = random(-MAX_ANGLE, MAX_ANGLE);
+    //change angle
+    goToAngle(angle);
+  }
   // drive forward
-  Robot.motorsWrite(motorSpeed, motorSpeed);
-  delay(forwardTime);
-  Robot.motorsStop();
+  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
+  delay(INCREMENT_FORWARD);
 
 }
 
 void goToAngle(int angle) {
   Robot.debugPrint(angle, 5, 100);
-  delay(1000);
+  Robot.motorsStop();
   float delayTime = angle * TURN_CALIBRATION; //find time to turn
   // decides what direction to turn
   if (angle > 0) {
@@ -210,6 +184,7 @@ void selectMode() {
   Robot.text("Down for random wander", 5, 25);
   Robot.text("Right for random obstacle", 5, 35);
   int button = Robot.keyboardRead();
+  int i = 0;
   switch (button) {
     case BUTTON_UP:
       while (1) {
@@ -225,18 +200,28 @@ void selectMode() {
       break;
     case BUTTON_LEFT:
       Robot.clearScreen();
-      agressiveKid();
+      while (1) {
+        agressiveKid();
+        int button = Robot.keyboardRead();
+        if (button == BUTTON_MIDDLE) {
+          Robot.motorsStop();
+          Robot.clearScreen();
+          break;
+        }
+      }
       break;
     case BUTTON_DOWN:
+      i = 0;
       while (1) {
         Robot.clearScreen();
-        randomWander();
+        randomWander(i);
         button = Robot.keyboardRead();
         if (button == BUTTON_MIDDLE) {
           Robot.motorsStop();
           Robot.clearScreen();
           break;
         }
+        i = i + 1;
       }
       break;
     case BUTTON_RIGHT:
@@ -251,38 +236,22 @@ void selectMode() {
 
 void agressiveKid() {
   Robot.text("agressive kid", 5, 5);
-  bool isClear = true;
+  bool isClear = false;
   int range = checkSonarPin(SONAR_FRONT);
   if (range <= TRIGGER_RANGE) {
     if (range == 0) {
-      //pass over
+      isClear = true;
     } else {
       isClear = false;
     }
+  } else {
+    isClear = true;
   }
-  while (1) {
-    Robot.debugPrint(isClear, 5, 50);
-    Robot.motorsWrite(isClear * MOTOR_SPEED, isClear * MOTOR_SPEED);
-    range = checkSonarPin(SONAR_FRONT);
-    if (range <= TRIGGER_RANGE) {
-      if (range == 0) {
-        //pass over
-      } else {
-        isClear = false;
-        Robot.motorsStop();
-      }
-    } else {
-      isClear = true;
-    }
-    Robot.debugPrint(range, 5, 35);
-    delay(WAIT_TIME);
-    Robot.clearScreen();
-    int button = Robot.keyboardRead();
-    if (button == BUTTON_MIDDLE) {
-      Robot.motorsStop();
-      Robot.clearScreen();
-      break;
-    }
-  }
+
+  Robot.motorsWrite(isClear * MOTOR_SPEED, isClear * MOTOR_SPEED);
+  range = checkSonarPin(SONAR_FRONT);
+  delay(WAIT_TIME);
+  Robot.clearScreen();
+
 }
 
