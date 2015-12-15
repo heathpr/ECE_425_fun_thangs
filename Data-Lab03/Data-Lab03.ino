@@ -25,12 +25,13 @@
 #define TRIGGER_RANGE 5
 #define MIN_MOTOR_SPEED 125
 #define INCREMENT_FORWARD 50
-#define NUMBER_ITERATIONS 20
+#define NUMBER_ITERATIONS 2
+#define RANDOM_SPEED 150
 
 double checkSonarPin(int pin);
 double checkIRPin(int pin);
 void goToAngle(int destination);
-void runAway();
+void runAway(int def);
 void movement(double mag, double y);
 void randomWander(void);
 void selectMode(void);
@@ -44,6 +45,7 @@ void setup() {
   Serial.begin(9600);
   // print some text to the screen
   Robot.stroke(0, 0, 0);
+  Robot.beginSpeaker();
 }
 
 void loop() {
@@ -53,46 +55,46 @@ void loop() {
 }
 
 
-void runAway() {
+void runAway(int def) {
   double front_distance = checkSonarPin(SONAR_FRONT);
   if (front_distance > TRIGGER_RANGE) {
     front_distance = 0;
   }
-  Robot.text("Front", 5, 50);
-  Robot.debugPrint(front_distance, 50, 50);
+  //  Robot.text("Front", 5, 50);
+  //  Robot.debugPrint(front_distance, 50, 50);
   double front_left_distance = checkIRPin(IR_FRONT_LEFT);
   if (front_left_distance > TRIGGER_RANGE) {
     front_left_distance = 0;
   }
-  Robot.text("Front left", 5, 59);
-  Robot.debugPrint(front_left_distance, 100, 59);
+  //  Robot.text("Front left", 5, 59);
+  //  Robot.debugPrint(front_left_distance, 100, 59);
   double front_right_distance = checkIRPin(IR_FRONT_RIGHT);
   if (front_right_distance > TRIGGER_RANGE) {
     front_right_distance = 0;
   }
-  Robot.text("Front right", 5, 68);
-  Robot.debugPrint(front_right_distance, 100, 68);
+  //  Robot.text("Front right", 5, 68);
+  //  Robot.debugPrint(front_right_distance, 100, 68);
   double left_distance = checkSonarPin(SONAR_LEFT);
   if (left_distance > TRIGGER_RANGE) {
     left_distance = 0;
   }
-  Robot.text("left", 5, 77);
-  Robot.debugPrint(left_distance, 50, 77);
+  //  Robot.text("left", 5, 77);
+  //  Robot.debugPrint(left_distance, 50, 77);
   double right_distance = checkSonarPin(SONAR_RIGHT);
   if (right_distance > TRIGGER_RANGE) {
     right_distance = 0;
   }
-  Robot.text("right", 5, 86);
-  Robot.debugPrint(right_distance, 50, 86);
+  //  Robot.text("right", 5, 86);
+  //  Robot.debugPrint(right_distance, 50, 86);
 
   double y_vector = -(right_distance - left_distance + front_right_distance * sqrt(2) / 2 - front_left_distance * sqrt(2) / 2);
   double x_vector = -(front_distance + front_right_distance * sqrt(2) / 2 + front_left_distance * sqrt(2) / 2);
-  Robot.debugPrint(x_vector, 5, 9);
-  Robot.debugPrint(y_vector, 5, 17);
+  //  Robot.debugPrint(x_vector, 5, 9);
+  //  Robot.debugPrint(y_vector, 5, 17);
 
   double mag = sqrt(x_vector * x_vector + y_vector * y_vector);
   Robot.text("running away", 5, 1);
-  if (mag < TRIGGER_RANGE && mag != 0) {
+  if ((mag < TRIGGER_RANGE && mag != 0)||def) {
     movement(mag, y_vector);
   } else {
     Robot.debugPrint(mag, 5, 26);
@@ -143,6 +145,12 @@ double checkIRPin(int pin) {
 
 void movement(double mag, double y) {
   float move_spd = (5 - mag) * MOTOR_SPEED * MOVEMENT_CALIBRATION;
+  if (move_spd < MIN_MOTOR_SPEED) {
+    move_spd = MIN_MOTOR_SPEED;
+  }
+  if(move_spd > MAX_MOTOR_SPEED){
+    move_spd = MOTOR_SPEED;
+  }
   Robot.motorsWrite(-move_spd + y * ANGLE_CALIBRATION, -move_spd - y * ANGLE_CALIBRATION);
   Robot.debugPrint(-move_spd + y * ANGLE_CALIBRATION, 5, 26);
   Robot.debugPrint(-move_spd - y * ANGLE_CALIBRATION, 5, 35);
@@ -155,10 +163,12 @@ void randomWander(int angleIterations) {
   if (angleIterations % NUMBER_ITERATIONS == 0) {
     angle = random(-MAX_ANGLE, MAX_ANGLE);
     //change angle
+    //    Robot.motorsStop();
+    //    Robot.turn(angle);
     goToAngle(angle);
   }
   // drive forward
-  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
+  Robot.motorsWrite(RANDOM_SPEED, RANDOM_SPEED);
   delay(INCREMENT_FORWARD);
 
 }
@@ -188,7 +198,7 @@ void selectMode() {
   switch (button) {
     case BUTTON_UP:
       while (1) {
-        runAway();
+        runAway(0);
         Robot.clearScreen();
         button = Robot.keyboardRead();
         if (button == BUTTON_MIDDLE) {
@@ -225,9 +235,18 @@ void selectMode() {
       }
       break;
     case BUTTON_RIGHT:
+      i = 0;
       while (1) {
         Robot.clearScreen();
-        //randomObstacle();
+
+        randomKid(&i);
+        button = Robot.keyboardRead();
+        if (button == BUTTON_MIDDLE) {
+          Robot.motorsStop();
+          Robot.clearScreen();
+          break;
+        }
+        i = i + 1;
       }
       break;
   }
@@ -252,6 +271,24 @@ void agressiveKid() {
   range = checkSonarPin(SONAR_FRONT);
   delay(WAIT_TIME);
   Robot.clearScreen();
+}
+
+void randomKid(int* i) {
+  double front_distance = checkSonarPin(SONAR_FRONT);
+  double front_left_distance = checkIRPin(IR_FRONT_LEFT);
+  double front_right_distance = checkIRPin(IR_FRONT_RIGHT);
+  Robot.debugPrint(front_distance, 5, 120);
+  Robot.debugPrint(front_left_distance, 5, 129);
+  Robot.debugPrint(front_right_distance, 5, 129);
+  if (front_distance > TRIGGER_RANGE  && front_distance > TRIGGER_RANGE  && front_right_distance > TRIGGER_RANGE) {
+    Robot.debugPrint(*i,5,1);
+    randomWander(*i);
+  } else {
+    *i = NUMBER_ITERATIONS - 1;
+    Robot.motorsStop();
+    Robot.beep(BEEP_SIMPLE);
+    runAway(1);
+  }
 
 }
 
