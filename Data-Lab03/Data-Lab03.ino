@@ -1,10 +1,14 @@
 /* Lab03 Matthew Schack, Peter Heath, and Data
-    last edited 12/15/15
+    last edited 12/19/15
 
-    Impliments driving behaviors based on sensor input
+    Impliments driving behaviors based on sensor input including shy kid agressive kid
+    random wander and random wander with obstacle avoidance behaviours.
+
+    Based on the ArduinoRobot.h library for the the Arduino Robot
 */
 
 
+// Grab nessecary header files
 #include <ArduinoRobot.h>
 #include <math.h>
 
@@ -30,15 +34,15 @@
 
 #define WAIT_TIME 50 // time inbetween each main loop when choosing mode
 
+// speeds for basic behaviours
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
 
+// time to back up before another sensor read in obstacle ovoidence mode
 #define MOVE_TIME 250
 
+// distance that breaks out of random wander and begins obstacle avoidance
 #define TRIGGER_RANGE 5
-
-#define MAX_MOTOR_SPEED 255
-#define MIN_MOTOR_SPEED 125
 
 //constants for random behavior
 #define MAX_FORWARD_TIME 5000
@@ -46,8 +50,10 @@
 #define INCREMENT_FORWARD 50
 #define NUMBER_ITERATIONS 2
 #define RANDOM_SPEED 150
+#define MAX_MOTOR_SPEED 255
+#define MIN_MOTOR_SPEED 125
 
-
+// preallocate functions
 void selectMode();
 void randomWander(void);
 void randomKid(int* i);
@@ -60,7 +66,7 @@ void goToAngle(int destination);
 
 
 
-
+// sets up initial parameters for the robot including LCD and speaker
 void setup() {
   Robot.begin();
   Robot.beginTFT();
@@ -71,12 +77,20 @@ void setup() {
   Robot.beginSpeaker();
 }
 
+// Main function that drives the robots behaviors
 void loop() {
   selectMode();
   delay(WAIT_TIME);
 
 }
 
+/*
+    Function which uses LCD and robot keyboard to let the user
+    decide what they would like the robot to do.  in addition it
+    also provides an environment for the behaviours to run in.
+    lastly it also provides the user a break function for the user by
+    pressing the center button.
+*/
 void selectMode() {
   Robot.text("Up for shy", 5, 5);
   Robot.text("Left for aggressive", 5, 15);
@@ -147,8 +161,13 @@ void selectMode() {
 
 }
 
-// random wander behavior
-// angleIterations how many times the randomWander function has been run (kept track in the main loop)
+/*
+    random wander behavior
+
+    takes an iteration number so that it knows how long it has been running and when it can turn
+    otherwise keep driving straight based on the random speed given
+
+*/
 void randomWander(int angleIterations) {
   if (angleIterations % NUMBER_ITERATIONS == 0) { // if we have iterated a predefined number of times then turn
     int angle = random(-MAX_ANGLE, MAX_ANGLE);
@@ -160,9 +179,14 @@ void randomWander(int angleIterations) {
   delay(INCREMENT_FORWARD);
 
 }
+/*
+  random wander with obstacle avoidance behavior
 
-//random wander with obstacle avoidance behavior
-//i is the amount of times the randomWander function has been run
+  very similar to the random wander behaviour but incorporates an obstacle avoidance check
+  every iteration it is called.  if an obstacle is detected it then calls the shy kid behaviour
+  to avoid the obstacle.
+
+*/
 void randomKid(int* i) {
   Robot.text("running away", 5, 1);
   //poll sensors
@@ -182,9 +206,13 @@ void randomKid(int* i) {
 
 }
 
+/*
+    shy kid behavior
 
-//shy kid behavior
-//def is whether the code is being run alone or in conjunction with random wander
+    def is whether the code is being run alone or in conjunction with random wander.
+    implements shy kid behavior to run away from nearby obstacles.
+
+*/
 void runAway(int def) {
   Robot.text("running away", 5, 1);
 
@@ -225,7 +253,11 @@ void runAway(int def) {
   }
 }
 
-//aggressive kid behavior
+/*
+    aggressive kid behavior
+
+    runs towards an object and stops when the front sensor is reading closer than the trigger range
+*/
 void agressiveKid() {
   Robot.text("agressive kid", 5, 5);
 
@@ -241,9 +273,14 @@ void agressiveKid() {
   Robot.clearScreen();
 }
 
-// polls the given pin 10 times and averages the result
+/*
+      polls the given pin a set number of times and averages the result
+      then returns the average distance read by the sonar sensor
+*/
 double checkSonarPin(int pin) {
   double output = 0;
+  // gather all samples and process through calibration equation as well as
+  //  use delays to avoid false triggering of the sensor
   for (int i = 0; i < NUM_SAMPLES; i++) {
     int value;
     pinMode(pin, OUTPUT);//set the PING pin as an output
@@ -266,9 +303,13 @@ double checkSonarPin(int pin) {
 }
 
 
-// polls the given pin 10 times and averages the result
+/*
+      polls the given pin a set number of times and averages the result
+      then returns the average distance read by the infrared sensor
+*/
 double checkIRPin(int pin) {
   double output = 0;
+  // gather all samples and process through calibration equation
   for (int i = 0; i < NUM_SAMPLES; i++) {
     int value;
     value = Robot.analogRead(pin);
@@ -282,11 +323,12 @@ double checkIRPin(int pin) {
   }
   return output;
 }
-
-// moves according to the potential fields method with the given magnitude and y vector
-//only moves backwards
+/*
+    moves according to the potential fields method with the given magnitude and y vector
+    only moves backwards.  uses a PD controler to acurately back away from an object
+*/
 void movement(double mag, double y) {
-  
+
   float move_spd = (TRIGGER_RANGE - mag) * MOTOR_SPEED * MOVEMENT_CALIBRATION; // P control for the base speed
 
   // keep the movement speed within bounds and high enough to move
@@ -301,8 +343,9 @@ void movement(double mag, double y) {
   Robot.motorsStop();
 }
 
-
-//goes to the given angle
+/*
+    goes to the given angle based on an open loop command using a timer
+*/
 void goToAngle(int angle) {
   Robot.motorsStop();
   float delayTime = angle * TURN_CALIBRATION; //find time to turn
