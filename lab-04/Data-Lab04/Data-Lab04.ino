@@ -39,6 +39,9 @@
 #define INSIDE_THRESHOLD 7
 #define BACK_THRESHOLD 2
 
+#define LOW_BAND 3
+#define HIGH_BAND 3
+
 
 // possible modes the robot can be in
 #define RIGHT_WALL 1
@@ -54,6 +57,7 @@ void movement(double wall_distance, int wall);
 void randomWander(void);
 void selectMode(void);
 void wallFollowing(int wall);
+void bothWallFollowing(void);
 
 int iterator = 0;
 int wallFollow = RANDOM; //start in random mode
@@ -70,7 +74,7 @@ void setup() {
 
 void loop() {
   selectMode();
-  //delay(DEBUG_TIME);
+  delay(2000);
   Robot.clearScreen();
 }
 
@@ -82,8 +86,8 @@ void selectMode() {
       break;
 
     case BOTH_WALLS:
-      Robot.text("both walls", 5, 1);
-      wallFollow = RANDOM;
+      Robot.text("folowing both walls", 5, 1);
+      bothWallFollowing();
       iterator = 0;
       break;
 
@@ -135,18 +139,44 @@ void randomWander(int avoid) {
   delay(INCREMENT_FORWARD);
 }
 
+void bothWallFollowing() {
+  double front_left_wall = checkIRPin(IR_FRONT_LEFT) * sqrt(2) / 2;;
+  double front_right_wall = checkIRPin(IR_FRONT_RIGHT) * sqrt(2) / 2;;
+  double left_wall = checkSonarPin(SONAR_LEFT);
+  double right_wall = checkSonarPin(SONAR_RIGHT);
+
+  double avg_dist = (right_wall + front_right_wall + left_wall + front_left_wall) / 4;
+
+  if (left_wall > 2 * MAX_DISTANCE) {
+    previousValue = 0;
+    wallFollow = RIGHT_WALL;
+  } else if (right_wall > 2 * MAX_DISTANCE) {
+    previousValue = 0;
+    wallFollow = LEFT_WALL;
+  } else {
+    Robot.debugPrint(right_wall, 5, 9);
+    movementdouble(avg_dist, right_wall);
+    previousValue = right_wall;
+  }
+
+
+}
+
 void wallFollowing(int wall) {
   double wallside_distance;
   double wallside_front_distance;
   double front_distance = checkSonarPin(SONAR_FRONT);
+  double opposite_side;
   Robot.debugPrint(front_distance, 5, 9);
   if (wall == RIGHT_WALL) {
     wallside_distance = checkSonarPin(SONAR_RIGHT);
     wallside_front_distance = checkIRPin(IR_FRONT_RIGHT) * sqrt(2) / 2;
+    opposite_side = checkSonarPin(SONAR_LEFT);
     Robot.text("Following right wall", 5, 1);
   } else {
     wallside_distance = checkSonarPin(SONAR_LEFT);
     wallside_front_distance = checkIRPin(IR_FRONT_LEFT) * sqrt(2) / 2;
+    opposite_side = checkSonarPin(SONAR_RIGHT);
     Robot.text("Following left wall", 5, 1);
   }
 
@@ -160,19 +190,21 @@ void wallFollowing(int wall) {
     movement(wallDistance, wall);
   } else if (front_distance <= BACK_THRESHOLD || wallside_front_distance <= BACK_THRESHOLD) {
     straight(-1);
+  } else if (opposite_side < MAX_DISTANCE) {
+    previousValue = 0;
+    wallFollow = BOTH_WALLS;
   } else {
     movement(wallside_distance, wall);
+    previousValue = wallside_distance;
   }
 
   if (wallside_distance > 2 * MAX_DISTANCE && previousValue > 2 * MAX_DISTANCE) {
     wallFollow = RANDOM;
+    previousValue = 0;
   } else if (wallside_distance > 2 * MAX_DISTANCE) {
     movement(wallside_distance, wall);
     straight(1);
   }
-
-  previousValue = wallside_distance;
-
 }
 
 void movement(double wall_distance, int wall) {
@@ -189,19 +221,19 @@ void movement(double wall_distance, int wall) {
   }
 
   if (move_spd_L > MAX_MOTOR_SPEED) {
-    Robot.text("left too fast", 5, 9);
+    Robot.text("left too fast", 5, 100);
     move_spd_L = MAX_MOTOR_SPEED;
   } else if (move_spd_L < MIN_MOTOR_SPEED) {
-    Robot.text("left too slow", 5, 9);
+    Robot.text("left too slow", 5, 100);
     move_spd_L = MIN_MOTOR_SPEED;
   }
 
   if (move_spd_R > MAX_MOTOR_SPEED) {
     move_spd_R = MAX_MOTOR_SPEED;
-    Robot.text("right too fast", 5, 17);
+    Robot.text("right too fast", 5, 109);
   } else if (move_spd_R < MIN_MOTOR_SPEED) {
     move_spd_R = MIN_MOTOR_SPEED;
-    Robot.text("right too slow", 5, 17);
+    Robot.text("right too slow", 5, 109);
   }
   Robot.motorsWrite(move_spd_L, move_spd_R);
   Robot.debugPrint(move_spd_L, 5, 26);
@@ -210,8 +242,44 @@ void movement(double wall_distance, int wall) {
   Robot.motorsStop();
 }
 
-void straight(int dir){
-  Robot.motorsWrite(MOTOR_SPEED*dir,MOTOR_SPEED*dir);
+
+void movementdouble(double avg_dist, double wall_distance) {
+  double move_spd_L = MOTOR_SPEED;
+  double move_spd_R = MOTOR_SPEED;
+
+  if (wall_distance < avg_dist - LOW_BAND) {
+    move_spd_L -= ((wall_distance - avg_dist-LOW_BAND) * KP - (wall_distance - previousValue) * KD);
+    move_spd_R += ((wall_distance - avg_dist-LOW_BAND) * KP + (wall_distance - previousValue) * KD);
+  }
+  else if (wall_distance > avg_dist + HIGH_BAND) {
+    move_spd_L += ((avg_dist+HIGH_BAND - wall_distance) * KP + (wall_distance - previousValue) * KD);
+    move_spd_R -= ((avg_dist+HIGH_BAND - wall_distance) * KP - (wall_distance - previousValue) * KD);
+  }
+
+  if (move_spd_L > MAX_MOTOR_SPEED) {
+    Robot.text("left too fast", 5, 100);
+    move_spd_L = MAX_MOTOR_SPEED;
+  } else if (move_spd_L < MIN_MOTOR_SPEED) {
+    Robot.text("left too slow", 5, 100);
+    move_spd_L = MIN_MOTOR_SPEED;
+  }
+
+  if (move_spd_R > MAX_MOTOR_SPEED) {
+    move_spd_R = MAX_MOTOR_SPEED;
+    Robot.text("right too fast", 5, 109);
+  } else if (move_spd_R < MIN_MOTOR_SPEED) {
+    move_spd_R = MIN_MOTOR_SPEED;
+    Robot.text("right too slow", 5, 109);
+  }
+  Robot.motorsWrite(move_spd_L, move_spd_R);
+  Robot.debugPrint(move_spd_L, 5, 26);
+  Robot.debugPrint(move_spd_R, 5, 35);
+  delay(MOVE_TIME);
+  Robot.motorsStop();
+}
+
+void straight(int dir) {
+  Robot.motorsWrite(MOTOR_SPEED * dir, MOTOR_SPEED * dir);
   delay(MOVE_TIME);
   Robot.motorsStop();
 }
@@ -252,7 +320,7 @@ double checkSonarPin(int pin) {
   if (output <= 0) {
     output = 99999998;
   }
-  return output + 1;
+  return output;
 }
 
 double checkIRPin(int pin) {
@@ -267,7 +335,7 @@ double checkIRPin(int pin) {
   }
   output = output / NUM_SAMPLES;
   if (output <= 0) {
-    output = 99999999;
+    output = 99999998;
   }
-  return output;
+  return output + 1;
 }
