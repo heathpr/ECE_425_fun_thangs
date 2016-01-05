@@ -10,8 +10,8 @@
 #define MAX_IR 595
 #define NUM_SAMPLES 5
 
-#define KP 11
-#define KD 1
+#define KP 30
+#define KD 3
 
 #define MIN_DISTANCE 4
 #define MAX_DISTANCE 6
@@ -23,13 +23,12 @@
 
 #define WAIT_TIME 50
 #define MAX_FORWARD_TIME 5000
-#define MOVE_TIME 25
+#define MOVE_TIME 200
 
-#define MAX_MOTOR_SPEED 175
-#define MIN_MOTOR_SPEED 100
+#define MAX_MOTOR_SPEED 255
+#define MIN_MOTOR_SPEED 125
 #define TURN_SPEED 150
-#define MOTOR_SPEED 125
-#define TURN_CONSTANT 2
+#define MOTOR_SPEED 200
 
 #define MAX_ANGLE 180
 
@@ -75,7 +74,7 @@ void setup() {
 
 void loop() {
   selectMode();
-  //  delay(500);
+  delay(2000);
   Robot.clearScreen();
 }
 
@@ -146,33 +145,16 @@ void bothWallFollowing() {
   double left_wall = checkSonarPin(SONAR_LEFT);
   double right_wall = checkSonarPin(SONAR_RIGHT);
 
-  double avg_dist = left_wall + right_wall;
-  int divider = 2;
-  if (abs(front_left_wall - left_wall) <= DIFFERENCE_THRESHOLD) {
-    avg_dist += front_left_wall;
-    divider++;
-  }
+  double avg_dist = (right_wall + front_right_wall + left_wall + front_left_wall) / 4;
 
-  if (abs(front_right_wall - right_wall) <= DIFFERENCE_THRESHOLD) {
-    avg_dist += front_right_wall;
-    divider++;
-  }
-
-  avg_dist /= divider;
-
-
-
-  if (left_wall > 3 * MAX_DISTANCE) {
+  if (left_wall > 2 * MAX_DISTANCE) {
     previousValue = 0;
     wallFollow = RIGHT_WALL;
-    Robot.motorsStop();
-  } else if (right_wall > 3 * MAX_DISTANCE) {
+  } else if (right_wall > 2 * MAX_DISTANCE) {
     previousValue = 0;
     wallFollow = LEFT_WALL;
-    Robot.motorsStop();
   } else {
     Robot.debugPrint(right_wall, 5, 9);
-    Robot.debugPrint(avg_dist, 5, 17);
     movementdouble(avg_dist, right_wall);
     previousValue = right_wall;
   }
@@ -198,39 +180,29 @@ void wallFollowing(int wall) {
     Robot.text("Following left wall", 5, 1);
   }
 
-  if (opposite_side < 2 * MAX_DISTANCE) {
-    previousValue = 0;
-    wallFollow = BOTH_WALLS;
-    Robot.motorsStop();
-    return;
-  }
-
 
 
   if (front_distance <= INSIDE_THRESHOLD) {
     goToAngle(INSIDE_ANGLE * wall);
     movement((MAX_DISTANCE + MIN_DISTANCE) / 2, 1);
-  } else if (front_distance <= BACK_THRESHOLD || wallside_front_distance <= BACK_THRESHOLD) {
-    straight(-1);
   } else if (wallside_front_distance - wallside_distance <= DIFFERENCE_THRESHOLD) {
     double wallDistance  = (wallside_front_distance + wallside_distance) / 2; // average of the 2 sensors
     movement(wallDistance, wall);
-    previousValue = wallDistance;
-  } else if (wallside_front_distance <= 2 * MAX_DISTANCE && wallside_distance > 2 * MAX_DISTANCE) {
-    movement(wallside_front_distance, wall);
-    previousValue = wallside_front_distance;
+  } else if (front_distance <= BACK_THRESHOLD || wallside_front_distance <= BACK_THRESHOLD) {
+    straight(-1);
+  } else if (opposite_side < MAX_DISTANCE) {
+    previousValue = 0;
+    wallFollow = BOTH_WALLS;
   } else {
-    movement(wallside_distance + TURN_CONSTANT, wall);
-    movement(wallside_distance + TURN_CONSTANT, wall);
+    movement(wallside_distance, wall);
     previousValue = wallside_distance;
   }
 
-  if (wallside_distance > 3 * MAX_DISTANCE && previousValue > 3 * MAX_DISTANCE) {
+  if (wallside_distance > 2 * MAX_DISTANCE && previousValue > 2 * MAX_DISTANCE) {
     wallFollow = RANDOM;
     previousValue = 0;
-    Robot.motorsStop();
   } else if (wallside_distance > 2 * MAX_DISTANCE) {
-    movement(wallside_distance + TURN_CONSTANT, wall);
+    movement(wallside_distance, wall);
     straight(1);
   }
 }
@@ -267,7 +239,7 @@ void movement(double wall_distance, int wall) {
   Robot.debugPrint(move_spd_L, 5, 26);
   Robot.debugPrint(move_spd_R, 5, 35);
   delay(MOVE_TIME);
-  //Robot.motorsStop();
+  Robot.motorsStop();
 }
 
 
@@ -276,12 +248,12 @@ void movementdouble(double avg_dist, double wall_distance) {
   double move_spd_R = MOTOR_SPEED;
 
   if (wall_distance < avg_dist - LOW_BAND) {
-    move_spd_L -= ((wall_distance - avg_dist - LOW_BAND) * KP - (wall_distance - previousValue) * KD);
-    move_spd_R += ((wall_distance - avg_dist - LOW_BAND) * KP + (wall_distance - previousValue) * KD);
+    move_spd_L -= ((wall_distance - avg_dist-LOW_BAND) * KP - (wall_distance - previousValue) * KD);
+    move_spd_R += ((wall_distance - avg_dist-LOW_BAND) * KP + (wall_distance - previousValue) * KD);
   }
   else if (wall_distance > avg_dist + HIGH_BAND) {
-    move_spd_L += ((avg_dist + HIGH_BAND - wall_distance) * KP + (wall_distance - previousValue) * KD);
-    move_spd_R -= ((avg_dist + HIGH_BAND - wall_distance) * KP - (wall_distance - previousValue) * KD);
+    move_spd_L += ((avg_dist+HIGH_BAND - wall_distance) * KP + (wall_distance - previousValue) * KD);
+    move_spd_R -= ((avg_dist+HIGH_BAND - wall_distance) * KP - (wall_distance - previousValue) * KD);
   }
 
   if (move_spd_L > MAX_MOTOR_SPEED) {
@@ -303,13 +275,13 @@ void movementdouble(double avg_dist, double wall_distance) {
   Robot.debugPrint(move_spd_L, 5, 26);
   Robot.debugPrint(move_spd_R, 5, 35);
   delay(MOVE_TIME);
-  //Robot.motorsStop();
+  Robot.motorsStop();
 }
 
 void straight(int dir) {
   Robot.motorsWrite(MOTOR_SPEED * dir, MOTOR_SPEED * dir);
   delay(MOVE_TIME);
-  //Robot.motorsStop();
+  Robot.motorsStop();
 }
 
 void goToAngle(int angle) {
