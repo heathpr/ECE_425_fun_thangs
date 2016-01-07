@@ -190,27 +190,27 @@ void wallFollowing(int wall) {
 
 
 
-  if (front_distance <= INSIDE_THRESHOLD) {
+  if (front_distance <= INSIDE_THRESHOLD) {//approaching a wall (inside corner case)
     goToAngle(INSIDE_ANGLE * wall);
     straight(1);
-  } else if (abs(wallside_front_distance - wallside_distance) <= DIFFERENCE_THRESHOLD) {
+  } else if (abs(wallside_front_distance - wallside_distance) <= DIFFERENCE_THRESHOLD) {//following the wall (normal wall follow state)
     double wallDistance;
-    if(wallside_front_distance < wallside_distance){
+    if (wallside_front_distance < wallside_distance) { //if Data is angled towards the wall we want to turn away harder
       wallDistance = wallside_front_distance;
-    }else{
-     wallDistance = (wallside_front_distance + wallside_distance) / 2; // average of the 2 sensors
+    } else { //otherwise average the 2 values
+      wallDistance = (wallside_front_distance + wallside_distance) / 2;
     }
     movement(wallDistance * wall, CORRECT_DISTANCE);
     previousValue = wallDistance;
     Robot.text("both sensors close", 5, 9);
-  } else if (front_distance <= BACK_THRESHOLD || wallside_front_distance <= BACK_THRESHOLD) {
-    straight(-1);
-  } else if (wallside_front_distance <= 2 * (CORRECT_DISTANCE + HIGH_BAND) && wallside_distance > 2 * (CORRECT_DISTANCE + HIGH_BAND)) {
+  } else if (wallside_front_distance <= 2 * (CORRECT_DISTANCE + HIGH_BAND) &&
+             wallside_distance > 2 * (CORRECT_DISTANCE + HIGH_BAND)) {
+    //if only the IR sensor sees the wall use just the IR sensor (ending an outside turn)
     movement(wallside_front_distance * wall, CORRECT_DISTANCE);
     previousValue = wallside_front_distance * wall;
     Robot.text("Following IR", 5, 9);
   }
-  else {
+  else { // only sonar sees the wall or Data sees nothing (begining an outside turn or in the middle of a turn)
     movement(wallside_distance * wall, CORRECT_DISTANCE);
     movement(wallside_distance * wall, CORRECT_DISTANCE);
     previousValue = wallside_distance * wall;
