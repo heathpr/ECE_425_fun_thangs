@@ -10,8 +10,8 @@
 #define MAX_IR 595
 #define NUM_SAMPLES 5
 
-#define KP 30
-#define KD 3
+#define KP 15
+#define KD 2
 
 #define DIFFERENCE_THRESHOLD 5
 
@@ -72,7 +72,7 @@ void setup() {
 
 void loop() {
   selectMode();
-  delay(500);
+  //delay(500);
   Robot.clearScreen();
 }
 
@@ -104,13 +104,13 @@ void randomKid() {
   int left_distance = checkSonarPin(SONAR_LEFT);
   int right_distance = checkSonarPin(SONAR_RIGHT);
 
-  if (( left_distance < 2 * (CORRECT_DISTANCE+HIGH_BAND)) && ( right_distance < 2 * (CORRECT_DISTANCE+HIGH_BAND))) {
+  if (( left_distance < 2 * (CORRECT_DISTANCE + HIGH_BAND)) && ( right_distance < 2 * (CORRECT_DISTANCE + HIGH_BAND))) {
     wallFollow = BOTH_WALLS;
     Robot.motorsStop();
-  } else if (front_left_distance < 2 * (CORRECT_DISTANCE+HIGH_BAND) || left_distance < 2 * (CORRECT_DISTANCE+HIGH_BAND)) {
+  } else if (front_left_distance < 2 * (CORRECT_DISTANCE + HIGH_BAND) || left_distance < 2 * (CORRECT_DISTANCE + HIGH_BAND)) {
     wallFollow = LEFT_WALL;
     Robot.motorsStop();
-  } else if (front_right_distance < 2 * (CORRECT_DISTANCE+HIGH_BAND) || right_distance < 2 * (CORRECT_DISTANCE+HIGH_BAND)) {
+  } else if (front_right_distance < 2 * (CORRECT_DISTANCE + HIGH_BAND) || right_distance < 2 * (CORRECT_DISTANCE + HIGH_BAND)) {
     wallFollow = RIGHT_WALL;
     Robot.motorsStop();
   } else {
@@ -151,10 +151,10 @@ void bothWallFollowing() {
 
   avg_dist /= divider;
 
-  if (left_wall > 3 * (CORRECT_DISTANCE+HIGH_BAND)) {
+  if (left_wall > 3 * (CORRECT_DISTANCE + HIGH_BAND)) {
     previousValue = 0;
     wallFollow = RIGHT_WALL;
-  } else if (right_wall > 3 * (CORRECT_DISTANCE+HIGH_BAND)) {
+  } else if (right_wall > 3 * (CORRECT_DISTANCE + HIGH_BAND)) {
     previousValue = 0;
     wallFollow = LEFT_WALL;
   } else {
@@ -194,25 +194,30 @@ void wallFollowing(int wall) {
     goToAngle(INSIDE_ANGLE * wall);
     straight(1);
   } else if (abs(wallside_front_distance - wallside_distance) <= DIFFERENCE_THRESHOLD) {
-    double wallDistance  = (wallside_front_distance + wallside_distance) / 2; // average of the 2 sensors
+    double wallDistance;
+    if(wallside_front_distance < wallside_distance){
+      wallDistance = wallside_front_distance;
+    }else{
+     wallDistance = (wallside_front_distance + wallside_distance) / 2; // average of the 2 sensors
+    }
     movement(wallDistance * wall, CORRECT_DISTANCE);
     previousValue = wallDistance;
-    Robot.text("both sensors close",5,9);
+    Robot.text("both sensors close", 5, 9);
   } else if (front_distance <= BACK_THRESHOLD || wallside_front_distance <= BACK_THRESHOLD) {
     straight(-1);
-  } else if (wallside_front_distance <= 2 * (CORRECT_DISTANCE+HIGH_BAND) && wallside_distance > 2 * (CORRECT_DISTANCE+HIGH_BAND)) {
+  } else if (wallside_front_distance <= 2 * (CORRECT_DISTANCE + HIGH_BAND) && wallside_distance > 2 * (CORRECT_DISTANCE + HIGH_BAND)) {
     movement(wallside_front_distance * wall, CORRECT_DISTANCE);
     previousValue = wallside_front_distance * wall;
-    Robot.text("Following IR",5,9);
+    Robot.text("Following IR", 5, 9);
   }
   else {
     movement(wallside_distance * wall, CORRECT_DISTANCE);
     movement(wallside_distance * wall, CORRECT_DISTANCE);
     previousValue = wallside_distance * wall;
-    Robot.text("Following Sonar",5,9);
+    Robot.text("Following Sonar", 5, 9);
   }
 
-  if (wallside_distance > 2 * (CORRECT_DISTANCE+HIGH_BAND) && previousValue > 2 * (CORRECT_DISTANCE+HIGH_BAND)) {
+  if (wallside_distance > 2 * (CORRECT_DISTANCE + HIGH_BAND) && previousValue > 2 * (CORRECT_DISTANCE + HIGH_BAND)) {
     wallFollow = RANDOM;
     previousValue = 0;
   }
@@ -222,13 +227,21 @@ void movement(double wall_distance, double correct_distance) {
   double move_spd_L = MOTOR_SPEED;
   double move_spd_R = MOTOR_SPEED;
 
-  if (abs(wall_distance) < correct_distance - LOW_BAND) {
-    move_spd_L -= (wall_distance - (correct_distance - LOW_BAND)) * KP - (wall_distance - previousValue) * KD;
-    move_spd_R += (wall_distance - (correct_distance - LOW_BAND)) * KP + (wall_distance - previousValue) * KD;
+  Robot.debugPrint(wall_distance, 5, 50);
+  Robot.debugPrint(correct_distance, 5, 59);
+
+  double mag = abs(wall_distance);
+  int dir = wall_distance / mag;
+
+
+
+  if (mag < correct_distance - LOW_BAND) {
+    move_spd_L -= (mag - (correct_distance)) * KP * dir - (wall_distance - previousValue) * KD;
+    move_spd_R += (mag - (correct_distance)) * KP * dir + (wall_distance - previousValue) * KD;
   }
-  else if (abs(wall_distance) > correct_distance + HIGH_BAND) {
-    move_spd_L += ((correct_distance + HIGH_BAND) - wall_distance) * KP + (wall_distance - previousValue) * KD;
-    move_spd_R -= ((correct_distance - HIGH_BAND) - wall_distance) * KP - (wall_distance - previousValue) * KD;
+  else if (mag > correct_distance + HIGH_BAND) {
+    move_spd_L += ((correct_distance) - mag) * KP * dir + (wall_distance - previousValue) * KD;
+    move_spd_R -= ((correct_distance) - mag) * KP * dir - (wall_distance - previousValue) * KD;
   }
 
   if (move_spd_L > MAX_MOTOR_SPEED) {
