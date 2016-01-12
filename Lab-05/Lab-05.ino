@@ -1,15 +1,34 @@
 #include <ArduinoRobot.h>
 
-
+//define pins used
+#define SONAR_FRONT D1
+#define IR_FRONT_RIGHT M1
+#define IR_FRONT_LEFT M3
+#define SONAR_LEFT D2
+#define SONAR_RIGHT D0
 #define PHOTO_LEFT B_TK2
 #define PHOTO_RIGHT B_TK4
+
+//define constants for sensor data
+#define MIN_SONAR 483
+#define MAX_IR 595
+#define NUM_SAMPLES 5
+
 #define MAX_MOTOR_SPEED 255
 #define MIN_MOTOR_SPEED 0
-#define KP 3000
+#define KP 2000
+#define MOTOR_MULT 5
+
+#define LOVE 0
+#define FEAR 1
+#define AGGRESSION 2
+#define EXPLORE 3
+
 int right = -1;
 int left = -1;
-int readPhotoSensor(int pin);
-void attraction(void);
+double readPhotoSensor(int pin);
+void behaviour(int, bool);
+void selectMode(bool);
 
 void setup() {
   Robot.begin();
@@ -20,37 +39,220 @@ void setup() {
 }
 
 void loop() {
-  attraction();
-  delay(15);
+  bool obstacle;
+  Robot.text("Up for obstacles", 5, 5);
+  Robot.text("down for no obstacles", 5, 15);
+  while (1) {
+    int button = Robot.keyboardRead();
+    if (button == BUTTON_UP) {
+      obstacle = true;
+      break;
+    } else if (button == BUTTON_DOWN) {
+      obstacle = false;
+      break;
+    }
+  }
+  Robot.clearScreen();
+  delay(250);
+  selectMode(obstacle);
   Robot.clearScreen();
 
 }
 
-int readPhotoSensor(int pin) {
-  int value;
+void selectMode(bool obstacle) {
+  while (1) {
+    Robot.text("Up for aggresion", 5, 5);
+    Robot.text("Left for fear", 5, 15);
+    Robot.text("Down for love", 5, 25);
+    Robot.text("Right for explore", 5, 35);
+    int button = Robot.keyboardRead();
+    int i = 0;
+    switch (button) {
+      case BUTTON_UP: //aggression
+        while (1) {
+          behaviour(AGGRESSION, obstacle);
+          Robot.clearScreen();
+          button = Robot.keyboardRead();
+
+          if (button == BUTTON_MIDDLE) { // break out of mode
+            Robot.motorsStop();
+            Robot.clearScreen();
+            break;
+          }
+        }
+        break;
+      case BUTTON_LEFT: //FEAR
+        Robot.clearScreen();
+        while (1) {
+          behaviour(FEAR, obstacle);
+          button = Robot.keyboardRead();
+
+          if (button == BUTTON_MIDDLE) { //break out of mode
+            Robot.motorsStop();
+            Robot.clearScreen();
+            break;
+          }
+        }
+        break;
+      case BUTTON_DOWN: //love
+        i = 0;
+        while (1) {
+          Robot.clearScreen();
+          behaviour(LOVE, obstacle);
+          button = Robot.keyboardRead();
+
+
+          if (button == BUTTON_MIDDLE) { //break out of mode
+            Robot.motorsStop();
+            Robot.clearScreen();
+            break;
+          }
+        }
+        break;
+      case BUTTON_RIGHT: //explore
+        i = 0;
+        while (1) {
+          Robot.clearScreen();
+          behaviour(EXPLORE, obstacle);
+          button = Robot.keyboardRead();
+
+
+          if (button == BUTTON_MIDDLE) { //break out of mode
+            Robot.motorsStop();
+            Robot.clearScreen();
+            break;
+          }
+        }
+        break;
+    }
+  }
+
+}
+
+double readPhotoSensor(int pin) {
+  double value;
   value = Robot.analogRead(pin);
   return value;
 }
 
-void attraction() {
-  int rightDist = -1;
-  int leftDist = -1;
+void behaviour(int mode, bool obstacle) {
+  double front, left, right, front_left, front_right;
+  if (obstacle) {
+    front = checkSonarPin(SONAR_FRONT);
+    left = checkSonarPin(SONAR_LEFT);
+    front_left = checkIRPin(IR_FRONT_LEFT);
+    front_right = checkIRPin(IR_FRONT_RIGHT);
+  }
+
+  double rightDist = -1;
+  double leftDist = -1;
   int leftSpeed;
   int rightSpeed;
   right = readPhotoSensor(PHOTO_RIGHT);
   left = readPhotoSensor(PHOTO_LEFT);
   rightDist = 154.948 - 0.167 * right;
   leftDist = 108.215 - 0.120 * left;
-  rightSpeed = 1 / rightDist * KP + MIN_MOTOR_SPEED;
-  leftSpeed = 1 / leftDist * KP + MIN_MOTOR_SPEED;
-  if (rightSpeed > MAX_MOTOR_SPEED) {
-    rightSpeed = MAX_MOTOR_SPEED;
+  
+  if (mode == LOVE) {
+    rightSpeed = 1 / rightDist * KP + MIN_MOTOR_SPEED;
+    leftSpeed = 1 / leftDist * KP + MIN_MOTOR_SPEED;
+  } else if (mode == FEAR) {
+    rightSpeed = -1 / rightDist * KP + MIN_MOTOR_SPEED;
+    leftSpeed = -1 / leftDist * KP + MIN_MOTOR_SPEED;
+  }else if (mode == AGGRESSION) {
+    rightSpeed = 1 / leftDist * KP + MIN_MOTOR_SPEED;
+    leftSpeed = 1 / rightDist * KP + MIN_MOTOR_SPEED;
+  } else if (mode == EXPLORE) {
+    rightSpeed = -1 / leftDist * KP + MIN_MOTOR_SPEED;
+    leftSpeed = -1 / rightDist * KP + MIN_MOTOR_SPEED;
   }
-  if (leftSpeed > MAX_MOTOR_SPEED) {
-    leftSpeed = MAX_MOTOR_SPEED;
+  
+  if (obstacle) {
+    leftSpeed += KP / MOTOR_MULT * (1 / left + (sqrt(2) / 2) / front_left - 1 / front);
+    rightSpeed += KP / MOTOR_MULT * (1 / right + (sqrt(2) / 2) / front_right - 1 / front);
   }
-  Robot.debugPrint(rightSpeed, 5, 20);
-  Robot.debugPrint(leftSpeed, 5, 80);
-  Robot.motorsWrite(leftSpeed, rightSpeed);
-}
+
+  if (abs(rightSpeed) > MAX_MOTOR_SPEED) {
+    if (rightSpeed > 0) {
+      rightSpeed = MAX_MOTOR_SPEED;
+    } else {
+      rightSpeed = -MAX_MOTOR_SPEED;
+    }
+  } else if (abs(rightSpeed) < MIN_MOTOR_SPEED) {
+    if (rightSpeed > 0) {
+      rightSpeed = MIN_MOTOR_SPEED;
+    } else {
+      rightSpeed = -MIN_MOTOR_SPEED;
+    }
+  }
+  
+  if (abs(leftSpeed) > MAX_MOTOR_SPEED) {
+    if (leftSpeed > 0) {
+      leftSpeed = MAX_MOTOR_SPEED;
+    } else {
+      leftSpeed = -MAX_MOTOR_SPEED;
+    }
+  } else if (abs(leftSpeed) < MIN_MOTOR_SPEED) {
+    if (leftSpeed > 0) {
+      leftSpeed = MIN_MOTOR_SPEED;
+    } else {
+      leftSpeed = -MIN_MOTOR_SPEED;
+    }
+  }
+    
+    Robot.debugPrint(rightSpeed, 5, 20);
+    Robot.debugPrint(leftSpeed, 5, 80);
+    Robot.motorsWrite(leftSpeed, rightSpeed);
+  }
+
+  /*
+     polls a sonar pin
+
+     pin - the pin that is being polled
+  */
+  double checkSonarPin(int pin) {
+    double output = 0;
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+      int value;
+      pinMode(pin, OUTPUT);//set the PING pin as an output
+      Robot.digitalWrite(pin, LOW);//set the PING pin low first
+      delayMicroseconds(2);//wait 2 us
+      Robot.digitalWrite(pin, HIGH);//trigger sonar by a 2 us HIGH PULSE
+      delayMicroseconds(5);//wait 5 us
+      Robot.digitalWrite(pin, LOW);//set pin low first again
+      pinMode(pin, INPUT);//set pin as input with duration as reception time
+      value = pulseIn(pin, HIGH);//measures how long the pin is high
+
+      value = .0111 * value - 0.8107;
+      output += value;
+      delay(5);
+    }
+    output = output / NUM_SAMPLES;
+    if (output <= 0) {
+      output = 99999998; // low output is set to a very large distance
+    }
+    return output;
+  }
+
+  /*
+     polls an IR pin
+
+     pin - the pin to be polled
+  */
+  double checkIRPin(int pin) {
+    double output = 0;
+    for (int i = 0; i < NUM_SAMPLES; i++) {
+      int value;
+      value = Robot.analogRead(pin);
+
+      value = 2517.3 / value - 1.7528;
+      output += value;
+      delay(5);
+    }
+    output = output / NUM_SAMPLES;
+    if (output <= 0) {
+      output = 99999998; // low output is set to a very large distance
+    }
+    return output + 1; // since IR sensors are about an inch more foward than the sonar pins add 1 to the final output
+  }
 
