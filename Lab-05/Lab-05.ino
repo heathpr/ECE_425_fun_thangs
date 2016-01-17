@@ -18,12 +18,12 @@
 #define MAX_MOTOR_SPEED 255
 #define MIN_MOTOR_SPEED 0
 
-//define multipliers for partial fields method
+//define multipliers for potential fields method
 #define KP 2000
 #define MOTOR_MULT 5
 
 
-//define cases
+//define cases as Enums
 #define LOVE 0
 #define FEAR 1
 #define AGGRESSION 2
@@ -42,6 +42,10 @@ void setup() {
   Robot.stroke(0, 0, 0);
 }
 
+/* 
+ *  main loop function for Data prompts the user to decide if ostacle avoidance is nessecary
+ *  then executes the selectMode function where the normal behaiors begin
+*/ 
 void loop() {
   bool obstacle;
   Robot.text("Up for obstacles", 5, 5);
@@ -65,7 +69,8 @@ void loop() {
 
 
 /*
-   selects the behavior the robot impliments
+   selects the behavior the robot impliments then execute 
+   that behaviours associated function.
    Data will stay in this function until program is reset
    obstacle - whether or not obstacle avoidence is running
 */
@@ -141,7 +146,7 @@ void selectMode(bool obstacle) {
 
 
 /*
-   partial fields method to perform every behavior
+   Potential fields method to perform every behavior
    mode - behavior to impliment
    obstacle - whether obstacle avoidence is on
 */
@@ -232,8 +237,8 @@ void behaviour(int mode, bool obstacle) {
 
 
 /*
-   reads the photo sensor at the inputed pin and returns the uncalibrated value
-   pin- the pin to read
+   reads the photo sensor at the given pin and returns the uncalibrated value
+   pin- the name of the pin to read
 */
 double readPhotoSensor(int pin) {
   double value;
