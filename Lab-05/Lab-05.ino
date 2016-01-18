@@ -1,3 +1,12 @@
+/* Lab05 Peter Heath, Matthew Schack, and Data
+    last edited 1/17/16
+
+    Implemented light following behaviors.  Such as: Love, Agresion,
+    fear, and explorer
+
+    Based on the ArduinoRobot.h library for the Arduino Robot
+*/
+
 #include <ArduinoRobot.h>
 
 //define pins used
