@@ -47,13 +47,13 @@
 
 #define BACK_THRESHOLD 2  // threashold to back up
 
-#define TURN_CALIBRATION 4.7 // time in ms to turn about 1 degree
+#define TURN_CALIBRATION 7.2 // time in ms to turn about 1 degree
 #define MAX_ANGLE 180 // biggest angle robot can turn
 
 #define LIGHT_THRESHOLD 35
 #define DOCKING_THRESHOLD 10
-#define WALL_THRESHOLD 10
-#define TURN_THRESHOLD 10
+#define WALL_THRESHOLD 4
+#define TURN_THRESHOLD 8
 
 //movement constants
 #define WAIT_TIME 50
