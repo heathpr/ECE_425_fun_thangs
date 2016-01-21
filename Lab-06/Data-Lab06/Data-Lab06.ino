@@ -31,7 +31,7 @@
 #define KD 2
 
 //define multipliers for potential fields method
-#define KPLIGHT 5
+#define KPLIGHT .1
 
 //distance from the wall the robot should follow
 #define CORRECT_DISTANCE 5
@@ -50,7 +50,7 @@
 #define TURN_CALIBRATION 4.7 // time in ms to turn about 1 degree
 #define MAX_ANGLE 180 // biggest angle robot can turn
 
-#define LIGHT_THRESHOLD 20
+#define LIGHT_THRESHOLD 35
 #define DOCKING_THRESHOLD 10
 #define WALL_THRESHOLD 10
 #define TURN_THRESHOLD 10
@@ -65,7 +65,9 @@
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
 
-#define LIGHT_SPEED 125
+#define LIGHT_SPEED 150
+#define SENSE_LIGHT 880
+#define MOVE_LIGHT 20
 
 //wall constants
 #define RIGHT_WALL 1
@@ -73,10 +75,12 @@
 
 // possible states the robot can be in
 #define WALL 0
-#define LIGHT 1
-#define DOCK 2
-#define RETURN 3
-#define TURN_WALL 4
+#define INTITIAL_LIGHT 1
+#define LIGHT 2
+#define DOCK 3
+#define RETURN 4
+#define TURN_WALL 5
+
 
 
 double checkSonarPin(int pin);
@@ -89,12 +93,14 @@ void lightFollow(void);
 void dock(void);
 void returnToWall(void);
 void turnWall(int wall);
+void intitialLight(void);
 
 
 int iterator = 0;
 int state = WALL; //start in wall mode
 int wall;
-int previousValue = 0; // previous value used for derivative control
+int previousValue = 0;
+int iterations = 0;
 
 void setup() {
   // put your setup code here, to run once:
@@ -133,7 +139,9 @@ void selectMode() {
     case WALL:
       wallFollowing(wall);
       break;
-      
+    case INTITIAL_LIGHT:
+      intitialLight();
+      break;
     case LIGHT:
       lightFollow();
       break;
@@ -146,7 +154,7 @@ void selectMode() {
       returnToWall();
       break;
     case TURN_WALL:
-    
+
       turnWall(wall);
       break;
   }
@@ -216,14 +224,41 @@ void wallFollowing(int wall) {
   int leftLight = readPhotoSensor(PHOTO_LEFT);
   int rightLight = readPhotoSensor(PHOTO_RIGHT);
 
+  Robot.debugPrint(leftLight, 5, 120);
+  Robot.debugPrint(rightLight, 5, 129);
+  delay(500);
+
+  //switch case for mode changing
+  if (abs(SENSE_LIGHT - leftLight) < LIGHT_THRESHOLD || abs(SENSE_LIGHT - rightLight) < LIGHT_THRESHOLD ) {
+    state = INTITIAL_LIGHT;
+    previousValue = leftLight > rightLight ? leftLight : rightLight;
+    delay(1000);
+  }
+}
+
+
+/*
+   intitial light follow
+*/
+
+void intitialLight() {
+  goToAngle(15);
+  int leftLight = readPhotoSensor(PHOTO_LEFT);
+  int rightLight = readPhotoSensor(PHOTO_RIGHT);
+
   leftLight = 108.215 - 0.120 * leftLight;
   rightLight = 154.948 - 0.167 * rightLight;
 
-  //switch case for mode changing
-  if (leftLight < LIGHT_THRESHOLD || rightLight < LIGHT_THRESHOLD ) {
+
+  if (leftLight < previousValue) {
+    previousValue = leftLight;
+  } else if (rightLight < previousValue) {
+    previousValue = rightLight;
+  } else {
     state = LIGHT;
     previousValue = 0;
   }
+
 }
 
 /*
@@ -249,13 +284,13 @@ void lightFollow() {
   right = readPhotoSensor(PHOTO_RIGHT);
   left = readPhotoSensor(PHOTO_LEFT);
 
-  //calibrate them differently depending on the side
-  rightDist = 154.948 - 0.167 * right;
-  leftDist = 108.215 - 0.120 * left;
-
-
-  rightSpeed = -rightDist * KPLIGHT + LIGHT_SPEED;
-  leftSpeed = -leftDist * KPLIGHT + LIGHT_SPEED;
+  if (abs(left - right) < MOVE_LIGHT) {
+    rightSpeed = LIGHT_SPEED;
+    leftSpeed = LIGHT_SPEED;
+  } else {
+    leftSpeed = LIGHT_SPEED + KPLIGHT * (left - right);
+    rightSpeed = LIGHT_SPEED - KPLIGHT * (left - right);
+  }
 
   //check to make sure nothing went out of bounds
   rightSpeed = checkSpeed(rightSpeed);
@@ -265,8 +300,12 @@ void lightFollow() {
   Robot.debugPrint(rightSpeed, 5, 20);
   Robot.debugPrint(leftSpeed, 5, 80);
   Robot.motorsWrite(leftSpeed, rightSpeed);
+  delay(MOVE_TIME);
+  Robot.motorsStop();
+  iterations++;
 
-  if (front < DOCKING_THRESHOLD) {
+  if (front < DOCKING_THRESHOLD && iterations > 10) {
+    iterations = 0;
     state = DOCK;
   }
 }
@@ -297,7 +336,7 @@ void turnWall(int wall) {
     side = checkSonarPin(SONAR_RIGHT);
   }
 
-  goToAngle(10);
+  goToAngle(30);
   if (side < TURN_THRESHOLD) {
     state = WALL;
   }
