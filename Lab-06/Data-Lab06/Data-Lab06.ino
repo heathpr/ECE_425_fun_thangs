@@ -1,8 +1,10 @@
-/* Lab04 Peter Heath, Matthew Schack, and Data
-    last edited 1/9/16
+/* Lab06 Peter Heath, Matthew Schack, and Data
+    last edited 1/24/16
 
     Impliments wall following behavior based on PD control from sensor input
-    Can follow left wall, right wall, and both walls
+    as well implements behaviour to move off of a wall towards a light "dock 
+    with it" and then return to the approximate position it left the wall from
+    and then continue following the wall.  
 
     Based on the ArduinoRobot.h library for the Arduino Robot
 */
@@ -12,7 +14,7 @@
 #include <ArduinoRobot.h>
 
 
-//define pins used
+//define sensor pins used
 #define SONAR_FRONT D1
 #define IR_FRONT_RIGHT M1
 #define IR_FRONT_LEFT M3
@@ -26,7 +28,7 @@
 #define MAX_IR 595
 #define NUM_SAMPLES 5
 
-// PD control constants
+// PD control constants for wall following
 #define KP 15
 #define KD 2
 
@@ -50,6 +52,7 @@
 #define TURN_CALIBRATION 7.2 // time in ms to turn about 1 degree
 #define MAX_ANGLE 180 // biggest angle robot can turn
 
+// thresholds for distances
 #define LIGHT_THRESHOLD 35
 #define DOCKING_THRESHOLD 10
 #define WALL_THRESHOLD 4
@@ -60,11 +63,13 @@
 #define MAX_FORWARD_TIME 5000
 #define MOVE_TIME 200
 
+// values for motor speeds
 #define MAX_MOTOR_SPEED 255
 #define MIN_MOTOR_SPEED 125
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
 
+// movement sppeds for light sensing
 #define LIGHT_SPEED 150
 #define SENSE_LIGHT 880
 #define MOVE_LIGHT 20
@@ -82,7 +87,7 @@
 #define TURN_WALL 5
 
 
-
+// initialize function prototypes
 double checkSonarPin(int pin);
 double checkIRPin(int pin);
 void goToAngle(int destination);
@@ -96,14 +101,19 @@ void turnWall(int wall);
 void intitialLight(void);
 
 
+// global variables 
 int iterator = 0;
 int state = WALL; //start in wall mode
 int wall;
 int previousValue = 0;
 int iterations = 0;
 
+
+/* 
+ * setup function for the robot checks to see the side of the  
+ * robot the wall is on and adjusts the state accordingly
+ */ 
 void setup() {
-  // put your setup code here, to run once:
   Robot.begin();
   Robot.beginTFT();
   Robot.beginSD();
@@ -122,6 +132,8 @@ void setup() {
 
 }
 
+
+// loop that calls mode function
 void loop() {
   selectMode();
   Robot.clearScreen();
@@ -130,7 +142,7 @@ void loop() {
 
 /*
    selects the mode Data is in
-   choices are: following single wall, both walls, or random wander
+   choices are: follow wall, follow light, docking, return to wall and get back on wall
    default case is following left or right walls
 */
 void selectMode() {
@@ -239,6 +251,7 @@ void wallFollowing(int wall) {
 
 /*
    intitial light follow
+   turns towards the light roughly then adjusts the state of the robot
 */
 
 void intitialLight() {
@@ -263,7 +276,8 @@ void intitialLight() {
 
 /*
    Potential fields method to perform lightFollow
-
+   constantly adjusts path to ensure accurate movement 
+   towards the light.
 */
 void lightFollow() {
 
@@ -310,12 +324,19 @@ void lightFollow() {
   }
 }
 
+/*
+    docking function for the robot then adjusts state
+ */
 void dock() {
   goToAngle(180);
   delay(5000);
   state = RETURN;
 }
 
+/*
+ * function that drives back the way the robot came and checks for the wall
+ * once the wall is found adjusts state
+ */
 void returnToWall() {
   straight(1);
   double front, front_left, front_right;
@@ -328,6 +349,9 @@ void returnToWall() {
   }
 }
 
+/*
+ * function to return robot to wall following mode
+ */
 void turnWall(int wall) {
   double side;
   if (wall == LEFT_WALL) {
@@ -342,6 +366,9 @@ void turnWall(int wall) {
   }
 }
 
+/*
+ * function to make sure speed of motors is within bounds
+ */
 int checkSpeed(int motorSpeed) {
   if (abs(motorSpeed) > MAX_MOTOR_SPEED) {
     if (motorSpeed > 0) {
