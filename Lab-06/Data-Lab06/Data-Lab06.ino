@@ -32,7 +32,7 @@
 #define KP 15
 #define KD 2
 
-//define multipliers for potential fields method
+//define multipliers for light home P control
 #define KPLIGHT .1
 
 //distance from the wall the robot should follow
@@ -52,7 +52,7 @@
 #define TURN_CALIBRATION 7.2 // time in ms to turn about 1 degree
 #define MAX_ANGLE 180 // biggest angle robot can turn
 
-// thresholds for distances
+// thresholds for changing states
 #define LIGHT_THRESHOLD 35
 #define DOCKING_THRESHOLD 10
 #define WALL_THRESHOLD 4
@@ -69,7 +69,7 @@
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
 
-// movement sppeds for light sensing
+// movement sppeds for light homing
 #define LIGHT_SPEED 150
 #define SENSE_LIGHT 880
 #define MOVE_LIGHT 20
@@ -120,7 +120,7 @@ void setup() {
   Serial.begin(9600);
   Robot.stroke(0, 0, 0);
 
-
+  //pick which side Data follows the wall
   double left = checkSonarPin(SONAR_LEFT);
   double right = checkSonarPin(SONAR_RIGHT);
 
@@ -143,7 +143,6 @@ void loop() {
 /*
    selects the mode Data is in
    choices are: follow wall, follow light, docking, return to wall and get back on wall
-   default case is following left or right walls
 */
 void selectMode() {
 
@@ -157,16 +156,13 @@ void selectMode() {
     case LIGHT:
       lightFollow();
       break;
-
     case DOCK:
       dock();
       break;
-
     case RETURN:
       returnToWall();
       break;
     case TURN_WALL:
-
       turnWall(wall);
       break;
   }
@@ -263,6 +259,7 @@ void intitialLight() {
   rightLight = 154.948 - 0.167 * rightLight;
 
 
+  //state switch case
   if (leftLight < previousValue) {
     previousValue = leftLight;
   } else if (rightLight < previousValue) {
@@ -318,6 +315,7 @@ void lightFollow() {
   Robot.motorsStop();
   iterations++;
 
+  //state swich case
   if (front < DOCKING_THRESHOLD && iterations > 10) {
     iterations = 0;
     state = DOCK;
@@ -344,6 +342,7 @@ void returnToWall() {
   front_left = sqrt(2) / 2 * checkIRPin(IR_FRONT_LEFT);
   front_right = sqrt(2) / 2 * checkIRPin(IR_FRONT_RIGHT);
 
+  //switch case for state
   if (front < WALL_THRESHOLD || front_left < WALL_THRESHOLD || front_right < WALL_THRESHOLD) {
     state = TURN_WALL;
   }
