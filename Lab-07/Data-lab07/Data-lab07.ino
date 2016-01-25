@@ -1,4 +1,17 @@
 #include "ArduinoRobot.h"
+
+//define pins used
+#define SONAR_FRONT D1
+#define IR_FRONT_RIGHT M1
+#define IR_FRONT_LEFT M3
+#define SONAR_LEFT D2
+#define SONAR_RIGHT D0
+
+//define constants for sensor data
+#define MIN_SONAR 483
+#define MAX_IR 595
+#define NUM_SAMPLES 5
+
 #define STRAIGHT_HALLWAY 0
 #define RIGHT_CORNER 1
 #define LEFT_CORNER 2
@@ -8,10 +21,29 @@
 #define BOTH_HALL 6
 #define T_JUNCTION 7
 
+#define DIFFERENCE_THRESHOLD 5 // threshold from front sonar and side sonar to go into straight wall behavior
+
+// PD control constants
+#define KP 15
+#define KD 2
+
+#define MAX_MOTOR_SPEED 255
+#define MIN_MOTOR_SPEED 125
+#define TURN_SPEED 150
+#define MOTOR_SPEED 200
+#define MOVE_TIME 200
+
+//dead band where the robot does not try to correct error
+#define LOW_BAND 1
+#define HIGH_BAND 1
+
+#define WALL_DIST 12
+
 bool leftWall = false;
 bool rightWall = false;
 bool frontWall = false;
-
+int previousValue = 0;
+char path[10];
 
 int identifyState(void);
 
@@ -23,6 +55,47 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
 
+}
+
+void setPath(void){
+  int i=0;
+  while(1){
+    if(Robot.keyboardRead()==BUTTON_LEFT){
+      path[i]='L';
+      delay(75);
+      i++;
+    }else if(Robot.keyboardRead()==BUTTON_RIGHT){
+      path[i]='R';
+      delay(75);
+      i++;
+    }else if(Robot.keyboardRead()==BUTTON_UP){
+      path[i]='F';
+      delay(75);
+      i++;
+    }else if(Robot.keyboardRead()==BUTTON_MIDDLE){
+      path[i]='S';
+      break;
+    }
+    if(i==9){
+      break;
+    }
+  }
+}
+
+void detectWalls(void) {
+  double leftWallDist = checkSonarPin(SONAR_LEFT);
+  double rightWallDist = checkSonarPin(SONAR_RIGHT);
+  double frontWallDist = checkSonarPin(SONAR_FRONT);
+
+  if (leftWallDist < WALL_DIST) {
+    leftWall = true;
+  }
+  if (rightWallDist < WALL_DIST) {
+    rightWall = true;
+  }
+  if (frontWallDist < WALL_DIST) {
+    frontWall = true;
+  }
 }
 
 int identifyState(void) {
@@ -71,7 +144,7 @@ void bothWallFollowing() {
   }
 
   avg_dist /= divider;
-  movement(right_wall, RIGHT_WALL, avg_dist); //movement if switch case doesn't trigger
+  movement(right_wall, avg_dist);
   previousValue = right_wall;
 }
 
@@ -82,7 +155,7 @@ void bothWallFollowing() {
    dir - direction to the wall (-1 left, 1 right)
    correct_distance - distance Data should be to the wall
 */
-void movement(double wall_distance, int dir, double correct_distance) {
+void movement(double wall_distance, double correct_distance) {
   //base speed
   double move_spd_L = MOTOR_SPEED;
   double move_spd_R = MOTOR_SPEED;
@@ -92,12 +165,12 @@ void movement(double wall_distance, int dir, double correct_distance) {
 
   //if robot is too close turn away
   if (wall_distance < correct_distance - LOW_BAND) {
-    move_spd_L -= (wall_distance - (correct_distance)) * KP * dir - (wall_distance - previousValue) * KD * dir;
-    move_spd_R += (wall_distance - (correct_distance)) * KP * dir + (wall_distance - previousValue) * KD * dir;
+    move_spd_L -= (wall_distance - (correct_distance)) * KP  - (wall_distance - previousValue) * KD ;
+    move_spd_R += (wall_distance - (correct_distance)) * KP  + (wall_distance - previousValue) * KD ;
   }
   else if (wall_distance > correct_distance + HIGH_BAND) { // if robot is too far turn towards
-    move_spd_L += ((correct_distance) - wall_distance) * KP * dir + (wall_distance - previousValue) * KD * dir;
-    move_spd_R -= ((correct_distance) - wall_distance) * KP * dir - (wall_distance - previousValue) * KD * dir;
+    move_spd_L += ((correct_distance) - wall_distance) * KP  + (wall_distance - previousValue) * KD ;
+    move_spd_R -= ((correct_distance) - wall_distance) * KP  - (wall_distance - previousValue) * KD ;
   }
 
   //uppper and lower bounds for motor speed
@@ -123,5 +196,56 @@ void movement(double wall_distance, int dir, double correct_distance) {
   Robot.debugPrint(move_spd_R, 5, 35);
   delay(MOVE_TIME);
   Robot.motorsStop();
+}
+
+/*
+   polls a sonar pin
+
+   pin - the pin that is being polled
+*/
+double checkSonarPin(int pin) {
+  double output = 0;
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    int value;
+    pinMode(pin, OUTPUT);//set the PING pin as an output
+    Robot.digitalWrite(pin, LOW);//set the PING pin low first
+    delayMicroseconds(2);//wait 2 us
+    Robot.digitalWrite(pin, HIGH);//trigger sonar by a 2 us HIGH PULSE
+    delayMicroseconds(5);//wait 5 us
+    Robot.digitalWrite(pin, LOW);//set pin low first again
+    pinMode(pin, INPUT);//set pin as input with duration as reception time
+    value = pulseIn(pin, HIGH);//measures how long the pin is high
+
+    value = .0111 * value - 0.8107;
+    output += value;
+    delay(5);
+  }
+  output = output / NUM_SAMPLES;
+  if (output <= 0) {
+    output = 99999998; // low output is set to a very large distance
+  }
+  return output;
+}
+
+/*
+   polls an IR pin
+
+   pin - the pin to be polled
+*/
+double checkIRPin(int pin) {
+  double output = 0;
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    int value;
+    value = Robot.analogRead(pin);
+
+    value = 2517.3 / value - 1.7528;
+    output += value;
+    delay(5);
+  }
+  output = output / NUM_SAMPLES;
+  if (output <= 0) {
+    output = 99999998; // low output is set to a very large distance
+  }
+  return output + 1; // since IR sensors are about an inch more foward than the sonar pins add 1 to the final output
 }
 
