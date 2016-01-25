@@ -33,6 +33,12 @@
 #define MOTOR_SPEED 200
 #define MOVE_TIME 200
 
+#define FORWARD_WALL 0
+#define FORWARD_BLIND 1
+#define TURN_LEFT 2
+#define TURN_RIGHT 3
+#define STOP 4
+
 //dead band where the robot does not try to correct error
 #define LOW_BAND 1
 #define HIGH_BAND 1
@@ -44,43 +50,84 @@ bool rightWall = false;
 bool frontWall = false;
 int previousValue = 0;
 char path[10];
+int location = 0;
 
 int identifyState(void);
+void setPath(void);
 
 void setup() {
   // put your setup code here, to run once:
-  identifyState();
+  Robot.begin();
+  Robot.beginTFT();
+  Robot.beginSD();
+  Serial.begin(9600);
+  Robot.stroke(0, 0, 0);
+  setPath();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+  int state = identifyState();
+  switch (chooseAction(state)) {
+    case FORWARD_WALL:
+      bothWallFollowing();
+      break;
+    case FORWARD_BLIND:
+      break;
+    case TURN_LEFT:
+      break;
+    case TURN_RIGHT:
+      break;
+    case STOP:
+      Robot.motorsStop();
+      while (1);
+      break;
+  }
 
 }
 
-void setPath(void){
-  int i=0;
-  while(1){
-    if(Robot.keyboardRead()==BUTTON_LEFT){
-      path[i]='L';
+void setPath(void) {
+  int i = 0;
+  while (1) {
+    if (Robot.keyboardRead() == BUTTON_LEFT) {
+      path[i] = 'L';
       delay(75);
       i++;
-    }else if(Robot.keyboardRead()==BUTTON_RIGHT){
-      path[i]='R';
+    } else if (Robot.keyboardRead() == BUTTON_RIGHT) {
+      path[i] = 'R';
       delay(75);
       i++;
-    }else if(Robot.keyboardRead()==BUTTON_UP){
-      path[i]='F';
+    } else if (Robot.keyboardRead() == BUTTON_UP) {
+      path[i] = 'F';
       delay(75);
       i++;
-    }else if(Robot.keyboardRead()==BUTTON_MIDDLE){
-      path[i]='S';
+    } else if (Robot.keyboardRead() == BUTTON_MIDDLE) {
+      path[i] = 'S';
       break;
     }
-    if(i==9){
+    if (i == 9) {
       break;
     }
   }
 }
+
+int chooseAction(int state) {
+  char desiredAction = path[location];
+  int action;
+  if (desiredAction == 'R' && (state == LEFT_CORNER || state == RIGHT_HALL || state == BOTH_HALL || state == T_JUNCTION)) {
+    action = TURN_RIGHT;
+  } else if (desiredAction == 'L' && (state == RIGHT_CORNER || state == LEFT_HALL || state == BOTH_HALL || state == T_JUNCTION) ) {
+    action = TURN_LEFT;
+  } else if (desiredAction == 'F' && state == STRAIGHT_HALLWAY) {
+    action = FORWARD_WALL;
+  } else if (desiredAction == 'F' && (state == LEFT_HALL || state == RIGHT_HALL || state == BOTH_HALL)) {
+    action = FORWARD_BLIND;
+  } else {
+    action = STOP;
+  }
+  return action;
+}
+
 
 void detectWalls(void) {
   double leftWallDist = checkSonarPin(SONAR_LEFT);
