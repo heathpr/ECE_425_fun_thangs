@@ -1,6 +1,17 @@
+/* Lab07 Peter Heath, Matthew Schack, and Data
+    last edited 1/26/16
+
+    Impliments wall following behavior based on PD control from sensor input
+    as well implements behaviour to deal with various landmarks and to 
+    navigate the given path by the user.
+    
+    Based on the ArduinoRobot.h library for the Arduino Robot
+*/
+
+//include header files
 #include "ArduinoRobot.h"
 
-//define pins used
+//define pins used for sensors
 #define SONAR_FRONT D1
 #define IR_FRONT_RIGHT M1
 #define IR_FRONT_LEFT M3
@@ -12,6 +23,7 @@
 #define MAX_IR 595
 #define NUM_SAMPLES 5
 
+// create an enum for each of the possible landmarks
 #define STRAIGHT_HALLWAY 0
 #define RIGHT_CORNER 1
 #define LEFT_CORNER 2
@@ -23,18 +35,19 @@
 
 #define DIFFERENCE_THRESHOLD 5 // threshold from front sonar and side sonar to go into straight wall behavior
 
-// PD control constants
+// PD control constants for wall following
 #define KP 15
 #define KD 2
 
+// movement constants
 #define MAX_MOTOR_SPEED 255
 #define MIN_MOTOR_SPEED 125
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
 #define MOVE_TIME 200
+#define TURN_TIME 500
 
-#define TURN_TIME 423
-
+//create enum for each state the robot can be in
 #define FORWARD_WALL 0
 #define FORWARD_BLIND 1
 #define TURN_LEFT 2
@@ -45,23 +58,26 @@
 #define LOW_BAND 1
 #define HIGH_BAND 1
 
-#define WALL_DIST 12
+//threshold for detecting a wall
+#define WALL_DIST 18
 
+//define directions
 #define LEFT 1
 #define RIGHT -1
 
+//create protypes for functions
 bool leftWall = false;
 bool rightWall = false;
 bool frontWall = false;
 int previousValue = 0;
 char path[10];
 int location = 0;
-
+bool stateChange = false;
 int identifyState(void);
 void setPath(void);
 
+//setup robot path and basic functionallity
 void setup() {
-  // put your setup code here, to run once:
   Robot.begin();
   Robot.beginTFT();
   Robot.beginSD();
@@ -70,8 +86,8 @@ void setup() {
   setPath();
 }
 
+// main loop for the robot makes implements the finite state machine
 void loop() {
-  // put your main code here, to run repeatedly:
   Robot.clearScreen();
   detectWalls();
   int state = identifyState();
@@ -101,23 +117,46 @@ void loop() {
 
 }
 
+
+/*
+ * causes the robot to blindly move forward then turn 
+ * then blindly move forward again so as to complete a 90
+ * degree turn in the given direction.
+ */
 void turn(int direc) {
   goStraight();
+  delay(15);
+  goStraight();
+  delay(15);
+  goStraight();
+  delay(15);
   goStraight();
   Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
   delay(TURN_TIME);
   Robot.motorsStop();
   goStraight();
+  delay(15);
   goStraight();
+  delay(15);
+  goStraight();
+  delay(15);
+  goStraight();
+  delay(15);
   goStraight();
 }
 
+/*
+ * function that has the robot blindly drive forward
+ */
 void goStraight() {
   Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
   delay(MOVE_TIME);
   Robot.motorsStop();
 }
 
+/*
+ * function that takes user inputs via the buttons
+ */
 void setPath(void) {
   int i = 0;
   Robot.text("Current path:", 5, 1);
@@ -152,16 +191,25 @@ int chooseAction(int state) {
   int action;
   if (state == STRAIGHT_HALLWAY) {
     action = FORWARD_WALL;
+    if (stateChange) {
+      location++;
+      stateChange = false;
+    }
   } else if (desiredAction == 'L' && (state == RIGHT_CORNER || state == LEFT_HALL || state == BOTH_HALL || state == T_JUNCTION) ) {
     action = TURN_LEFT;
+    stateChange = true;
   } else if (desiredAction == 'R' && (state == LEFT_CORNER || state == RIGHT_HALL || state == BOTH_HALL || state == T_JUNCTION)) {
+    stateChange = true;
     action = TURN_RIGHT;
   } else if (desiredAction == 'F' && (state == LEFT_HALL || state == RIGHT_HALL || state == BOTH_HALL)) {
+    stateChange = true;
     action = FORWARD_BLIND;
   } else if (desiredAction == 'L' &&  state == RIGHT_HALL) {
     action = FORWARD_BLIND;
+    stateChange = true;
   } else if (desiredAction == 'R' && state == LEFT_HALL) {
     action = FORWARD_BLIND;
+    stateChange = true;
   } else {
     action = STOP;
   }
@@ -176,18 +224,18 @@ void detectWalls(void) {
 
   if (leftWallDist < WALL_DIST) {
     leftWall = true;
-  }else{
+  } else {
     leftWall = false;
   }
   if (rightWallDist < WALL_DIST) {
     rightWall = true;
-  }else{
-    rightWall=false;
+  } else {
+    rightWall = false;
   }
   if (frontWallDist < WALL_DIST) {
     frontWall = true;
-  }else{
-    frontWall=false;
+  } else {
+    frontWall = false;
   }
 }
 
