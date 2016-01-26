@@ -47,8 +47,8 @@
 
 #define WALL_DIST 12
 
-#define LEFT -1
-#define RIGHT 1
+#define LEFT 1
+#define RIGHT -1
 
 bool leftWall = false;
 bool rightWall = false;
@@ -73,26 +73,27 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly:
   Robot.clearScreen();
+  detectWalls();
   int state = identifyState();
   switch (chooseAction(state)) {
     case FORWARD_WALL:
-    Robot.text("Forward Wall",5,1);
+      Robot.text("Forward Wall", 5, 1);
       bothWallFollowing();
       break;
     case FORWARD_BLIND:
-    Robot.text("Forward Blind",5,1);
+      Robot.text("Forward Blind", 5, 1);
       goStraight();
       break;
     case TURN_LEFT:
-    Robot.text("Turn Left",5,1);
+      Robot.text("Turn Left", 5, 1);
       turn(LEFT);
       break;
     case TURN_RIGHT:
-    Robot.text("Turn Right",5,1);
+      Robot.text("Turn Right", 5, 1);
       turn(RIGHT);
       break;
     case STOP:
-    Robot.text("Stop",5,1);
+      Robot.text("Stop", 5, 1);
       Robot.motorsStop();
       while (1);
       break;
@@ -100,10 +101,10 @@ void loop() {
 
 }
 
-void turn(int direc){
+void turn(int direc) {
   goStraight();
   goStraight();
-  Robot.motorsWrite(direc*TURN_SPEED,-direc*TURN_SPEED);
+  Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
   delay(TURN_TIME);
   Robot.motorsStop();
   goStraight();
@@ -119,22 +120,22 @@ void goStraight() {
 
 void setPath(void) {
   int i = 0;
-  Robot.text("Current path:",5,1);
+  Robot.text("Current path:", 5, 1);
   while (1) {
     if (Robot.keyboardRead() == BUTTON_LEFT) {
       path[i] = 'L';
       delay(150);
-      Robot.text('L',5*(i+1),9);
+      Robot.text('L', 5 * (i + 1), 9);
       i++;
     } else if (Robot.keyboardRead() == BUTTON_RIGHT) {
       path[i] = 'R';
       delay(150);
-      Robot.text('R',5*(i+1),9);
+      Robot.text('R', 5 * (i + 1), 9);
       i++;
     } else if (Robot.keyboardRead() == BUTTON_UP) {
       path[i] = 'F';
       delay(150);
-      Robot.text('F',5*(i+1),9);
+      Robot.text('F', 5 * (i + 1), 9);
       i++;
     } else if (Robot.keyboardRead() == BUTTON_MIDDLE) {
       path[i] = 'S';
@@ -149,13 +150,17 @@ void setPath(void) {
 int chooseAction(int state) {
   char desiredAction = path[location];
   int action;
-  if (desiredAction == 'R' && (state == LEFT_CORNER || state == RIGHT_HALL || state == BOTH_HALL || state == T_JUNCTION)) {
-    action = TURN_RIGHT;
+  if (state == STRAIGHT_HALLWAY) {
+    action = FORWARD_WALL;
   } else if (desiredAction == 'L' && (state == RIGHT_CORNER || state == LEFT_HALL || state == BOTH_HALL || state == T_JUNCTION) ) {
     action = TURN_LEFT;
-  } else if (desiredAction == 'F' && state == STRAIGHT_HALLWAY) {
-    action = FORWARD_WALL;
+  } else if (desiredAction == 'R' && (state == LEFT_CORNER || state == RIGHT_HALL || state == BOTH_HALL || state == T_JUNCTION)) {
+    action = TURN_RIGHT;
   } else if (desiredAction == 'F' && (state == LEFT_HALL || state == RIGHT_HALL || state == BOTH_HALL)) {
+    action = FORWARD_BLIND;
+  } else if (desiredAction == 'L' &&  state == RIGHT_HALL) {
+    action = FORWARD_BLIND;
+  } else if (desiredAction == 'R' && state == LEFT_HALL) {
     action = FORWARD_BLIND;
   } else {
     action = STOP;
@@ -171,12 +176,18 @@ void detectWalls(void) {
 
   if (leftWallDist < WALL_DIST) {
     leftWall = true;
+  }else{
+    leftWall = false;
   }
   if (rightWallDist < WALL_DIST) {
     rightWall = true;
+  }else{
+    rightWall=false;
   }
   if (frontWallDist < WALL_DIST) {
     frontWall = true;
+  }else{
+    frontWall=false;
   }
 }
 
@@ -184,28 +195,28 @@ int identifyState(void) {
   int state = -1;
   if (leftWall && rightWall && !frontWall) {
     state = STRAIGHT_HALLWAY;
-    Robot.text("straight hall",5,9);
+    Robot.text("straight hall", 5, 9);
   } else if ( !leftWall && rightWall && frontWall) {
     state = RIGHT_CORNER;
-    Robot.text("right corner",5,9);
+    Robot.text("right corner", 5, 9);
   } else if (leftWall && !rightWall && frontWall) {
     state = LEFT_CORNER;
-    Robot.text("left corner",5,9);
+    Robot.text("left corner", 5, 9);
   } else if (leftWall && rightWall && frontWall) {
     state = DEAD_END;
-    Robot.text("dead end",5,9);
+    Robot.text("dead end", 5, 9);
   } else if (!leftWall && rightWall && !frontWall) {
     state = LEFT_HALL;
-    Robot.text("left hallway",5,9);
+    Robot.text("left hallway", 5, 9);
   } else if (leftWall && !rightWall && !frontWall) {
     state = RIGHT_HALL;
-    Robot.text("right hallway",5,9);
+    Robot.text("right hallway", 5, 9);
   } else if (!leftWall && !rightWall && !frontWall) {
     state = BOTH_HALL;
-    Robot.text("both hallway",5,9);
+    Robot.text("both hallway", 5, 9);
   } else {
     state = T_JUNCTION;
-    Robot.text("t junction",5,9);
+    Robot.text("t junction", 5, 9);
   }
   return state;
 }
