@@ -50,27 +50,29 @@
 #define LEFT 1
 #define RIGHT -1
 
-#define UP_DIR 0
-#define RIGHT_DIR 1
-#define DOWN_DIR 2
-#define LEFT_DIR 3
+#define UP_DIR 1
+#define RIGHT_DIR 2
+#define DOWN_DIR 3
+#define LEFT_DIR 4
 
-#define BUTTON_TIME 100;
+#define BUTTON_TIME 100
 
 bool leftWall = false;
 bool rightWall = false;
 bool frontWall = false;
 int previousValue = 0;
-int startX=0;
-int startY=0;
-int path[16] = { -1};
+int startX = 0;
+int startY = 0;
+int goalX = 0;
+int goalY = 0;
+int path[16] = {0};
 
 
 int identifyState(void);
 void setPath(void);
-void createPath( x, y, iter);
+void createPath( int x, int y, int iter);
 int inputMap[4][4] = {
-  {0, 99, 99, 0}, 
+  {0, 99, 99, 0},
   {0, 0, 0, 0},
   {0, 99, 99, 0},
   {0, 99, 0, 0}
@@ -85,26 +87,51 @@ void setup() {
   Serial.begin(9600);
   Robot.stroke(0, 0, 0);
   setPath();
+  Robot.clearScreen();
   Robot.text("map", 5, 1);
   for (int i = 0; i < 4; i++) {
-    for (int j = 0; j < 4j++) {
-      Robot.debugPrint(inputMap[i][j], 5 * (1 + i), (j + 1) * 9);
+    for (int j = 0; j < 4; j++) {
+      Robot.debugPrint(inputMap[j][i], 15 * (1 + i), (j + 1) * 9);
     }
   }
-  int i =0;
+  int i = 0;
   int x = startX;
   int y = startY;
-  while(i<16 || path[i] !=-1){
+//  for(int j = 0;j<16;j++){
+//    Robot.debugPrint(path[j],5*j,60);
+//  }
+//  while(Robot.keyboardRead()!=BUTTON_MIDDLE);
+  while (i < 16) {
+    Robot.debugPrint(1, 5 * (x + 1), 50 + 9 * (y + 1));
+//    Robot.debugPrint(i, 5, 150);
+//
+//    while (Robot.keyboardRead() != BUTTON_MIDDLE);
+//    Robot.clearScreen();
+    if (path[i] == 0) {
+      break;
+    }
+    switch (path[i]) {
+      case UP_DIR:
+        y--;
+        break;
+      case DOWN_DIR:
+        y++;
+        break;
+      case LEFT_DIR:
+        x--;
+        break;
+      case RIGHT_DIR:
+        x++;
+        break;
+    }
     i++;
-    Robot.debugPrint(1,5*(x+1),50+9*(y+1));
   }
-  while(robot.keyboardRead !=BUTTON_CENTER);
-  
+  while (Robot.keyboardRead() != BUTTON_MIDDLE);
+
 }
 
 void loop() {
-
-
+  delay(500);
 }
 
 void turn(int direc) {
@@ -125,107 +152,136 @@ void goStraight() {
 }
 
 void setPath(void) {
-  int goalX = 0, goalY = 0;
   Robot.text("Enter start x", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_CENTER) {
+  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
     if (Robot.keyboardRead() == BUTTON_UP) {
       startX++;
     } else if (Robot.keyboardRead() == BUTTON_DOWN) {
       startX--;
     }
     delay(BUTTON_TIME);
-    Robot.debugPrint(x, 5, 9);
+    Robot.debugPrint(startX, 5, 9);
   }
   delay(BUTTON_TIME);
   Robot.clearScreen();
   Robot.text("Enter start y", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_CENTER) {
+  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
     if (Robot.keyboardRead() == BUTTON_UP) {
       startY++;
     } else if (Robot.keyboardRead() == BUTTON_DOWN) {
       startY--;
     }
     delay(BUTTON_TIME);
-    Robot.debugPrint(y, 5, 9);
+    Robot.debugPrint(startY, 5, 9);
   }
   delay(BUTTON_TIME);
   Robot.clearScreen();
   Robot.text("Enter goal x", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_CENTER) {
+  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
     if (Robot.keyboardRead() == BUTTON_UP) {
       goalX++;
     } else if (Robot.keyboardRead() == BUTTON_DOWN) {
       goalX--;
     }
     delay(BUTTON_TIME);
-    Robot.debugPrint(y, 5, 9);
+    Robot.debugPrint(goalX, 5, 9);
   }
   delay(BUTTON_TIME);
   Robot.clearScreen();
   Robot.text("Enter goal y", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_CENTER) {
+  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
     if (Robot.keyboardRead() == BUTTON_UP) {
       goalY++;
     } else if (Robot.keyboardRead() == BUTTON_DOWN) {
       goalY--;
     }
     delay(BUTTON_TIME);
-    Robot.debugPrint(y, 5, 9);
+    Robot.debugPrint(goalY, 5, 9);
   }
 
-  createMap(goalX, goalY, -1);
-  inputMap[goalX,][goalY] = 0;
+  createMap(goalX - 1, goalY, 0);
+  createMap(goalX + 1, goalY, 0);
+  createMap(goalX, goalY + 1, 0);
+  createMap(goalX, goalY - 1, 0);
+  Robot.clearScreen();
   createPath(startX, startY, 0);
 }
 
 void createMap(int x, int y, int currentNum) {
-  if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[x][y] == 99) {
+  if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[y][x] == 99 || (x == goalX && y == goalY)) {
     return;
   }
-  if (inputMap[x][y] == 0) {
-    inputMap[x][y] = ++currentNum;
+  if (inputMap[y][x] == 0) {
+    inputMap[y][x] = ++currentNum;
   } else {
     return;
   }
+
+  //  Robot.debugPrint(x, 5, 1);
+  //  Robot.debugPrint(y, 5, 9);
+  //  Robot.debugPrint(currentNum, 5, 17);
+  //  while (Robot.keyboardRead() != BUTTON_MIDDLE);
+  //  Robot.clearScreen();
 
   createMap(x - 1, y, currentNum);
   createMap(x + 1, y, currentNum);
   createMap(x, y - 1, currentNum);
   createMap(x, y + 1, currentNum);
-  return
+  return;
 }
 
-void createPath( x, y, iter) {
-  if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[x][y] == 99 || inputMap[x][y] == 0) {
+void createPath( int x, int y, int iter) {
+  if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[y][x] == 99 || inputMap[y][x] == 0) {
     return;
   }
 
   int up = 99, down = 99, left = 99, right = 99;
-  if (x + 1 < 3) {
-    right = inputMap[x + 1][y];
+  if (x + 1 < 4) {
+    right = inputMap[y][x + 1];
   }
-  if (x - 1 > 0) {
-    left = inputMap[x - 1][y];
+  if (x - 1 > -1) {
+    left = inputMap[y][x - 1];
   }
-  if (y + 1 < 3) {
-    up = inputMap[x][y + 1];
+  if (y + 1 < 4) {
+    down = inputMap[y + 1][x];
   }
-  if (y - 1 > 0) {
-    down = inputMap[x][y - 1];
+  if (y - 1 > -1) {
+    up = inputMap[y - 1][x];
   }
 
-  if (up = < down && up = < left && up = < right) {
+  //  Robot.debugPrint(x, 5, 1);
+  //  Robot.debugPrint(y, 5, 9);
+  //  Robot.debugPrint(iter, 5, 17);
+  //  Robot.debugPrint(up, 5, 50);
+  //  Robot.debugPrint(down, 5, 59);
+  //  Robot.debugPrint(left, 5, 68);
+  //  Robot.debugPrint(right, 5, 77);
+
+
+  if (up  <= down && up  <= left && up  <= right) {
     path[iter] = UP_DIR;
-    createPath(path, x, y + 1, iter++);
-  } else if (down = < left && down = < right) {
+    //    Robot.text("going up", 5, 40);
+    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
+    //    Robot.clearScreen();
+    createPath(x, y - 1, iter + 1);
+  } else if (down  <= left && down  <= right) {
     path[iter] = DOWN_DIR;
-    createPath(path, x, y - 1, iter++);
+    //    Robot.text("going down", 5, 40);
+    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
+    //    Robot.clearScreen();
+    createPath( x, y + 1, iter + 1);
   } else if (left <= right) {
     path[iter] = LEFT_DIR;
-    createPath(path, x - 1, y, iter++);
+    //    Robot.text("going left", 5, 40);
+    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
+    //    Robot.clearScreen();
+    createPath( x - 1, y, iter + 1);
   } else {
     path[iter] = RIGHT_DIR;
-    createPath(path, x + 1, y, iter++);
+    //    Robot.text("going right", 5, 40);
+    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
+    //    Robot.clearScreen();
+    createPath(x + 1, y, iter + 1);
   }
 
   return;
