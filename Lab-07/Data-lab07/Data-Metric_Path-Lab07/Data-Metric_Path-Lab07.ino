@@ -33,7 +33,8 @@
 #define MOTOR_SPEED 200
 #define MOVE_TIME 200
 
-#define TURN_TIME 423
+#define TURN_TIME 650
+#define CELL_TIME 1900
 
 #define FORWARD_WALL 0
 #define FORWARD_BLIND 1
@@ -66,6 +67,8 @@ int startY = 0;
 int goalX = 0;
 int goalY = 0;
 int path[16] = {0};
+int iter = 0;
+int orientation = DOWN_DIR;
 
 
 int identifyState(void);
@@ -97,16 +100,16 @@ void setup() {
   int i = 0;
   int x = startX;
   int y = startY;
-//  for(int j = 0;j<16;j++){
-//    Robot.debugPrint(path[j],5*j,60);
-//  }
-//  while(Robot.keyboardRead()!=BUTTON_MIDDLE);
+  //  for(int j = 0;j<16;j++){
+  //    Robot.debugPrint(path[j],5*j,60);
+  //  }
+  //  while(Robot.keyboardRead()!=BUTTON_MIDDLE);
   while (i < 16) {
     Robot.debugPrint(1, 5 * (x + 1), 50 + 9 * (y + 1));
-//    Robot.debugPrint(i, 5, 150);
-//
-//    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-//    Robot.clearScreen();
+    //    Robot.debugPrint(i, 5, 150);
+    //
+    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
+    //    Robot.clearScreen();
     if (path[i] == 0) {
       break;
     }
@@ -131,7 +134,90 @@ void setup() {
 }
 
 void loop() {
-  delay(500);
+  Robot.clearScreen();
+  switch (path[iter]) {
+    case UP_DIR:
+      switch (orientation) {
+        case UP_DIR:
+          break;
+        case DOWN_DIR:
+          turn90(LEFT);
+          turn90(LEFT);
+          break;
+        case LEFT_DIR:
+          turn90(RIGHT);
+          break;
+        case RIGHT_DIR:
+          turn90(LEFT);
+          break;
+      }
+      moveCell();
+      orientation = path[iter];
+      break;
+    case DOWN_DIR:
+      switch (orientation) {
+        case UP_DIR:
+          turn90(LEFT);
+          turn90(LEFT);
+          break;
+        case DOWN_DIR:
+
+          break;
+        case LEFT_DIR:
+          turn90(LEFT);
+          break;
+        case RIGHT_DIR:
+          turn90(RIGHT);
+          break;
+      }
+      moveCell();
+      orientation = path[iter];
+      break;
+    case LEFT_DIR:
+      switch (orientation) {
+        case UP_DIR:
+          turn90(LEFT);
+          break;
+        case DOWN_DIR:
+
+          turn90(RIGHT);
+          break;
+        case LEFT_DIR:
+
+          break;
+        case RIGHT_DIR:
+          turn90(LEFT);
+          turn90(LEFT);
+          break;
+      }
+      moveCell();
+      orientation = path[iter];
+      break;
+    case RIGHT_DIR:
+
+      switch (orientation) {
+        case UP_DIR:
+          turn90(RIGHT);
+          break;
+        case DOWN_DIR:
+          turn90(LEFT);
+          break;
+        case LEFT_DIR:
+          turn90(RIGHT);
+          turn90(RIGHT);
+          break;
+        case RIGHT_DIR:
+
+          break;
+      }
+      moveCell();
+      orientation = path[iter];
+      break;
+  }
+  iter++;
+  delay(1000);
+  
+
 }
 
 void turn(int direc) {
@@ -287,4 +373,23 @@ void createPath( int x, int y, int iter) {
   return;
 }
 
+void turn90(int direc) {
+  if (direc == LEFT) {
+    Robot.text("turn left", 5, 85);
+  } else {
+    Robot.text("turn right", 5, 85);
+  }
+  Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
+  delay(TURN_TIME);
+  Robot.motorsStop();
+  delay(500);
+}
+
+void moveCell() {
+  Robot.text("driving forward", 5, 80);
+  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
+  delay(CELL_TIME);
+  Robot.motorsStop();
+  delay(500);
+}
 
