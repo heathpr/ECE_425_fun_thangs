@@ -59,7 +59,7 @@
 #define HIGH_BAND 1
 
 //threshold for detecting a wall
-#define WALL_DIST 18
+#define WALL_DIST 13
 
 //define directions
 #define LEFT 1
@@ -141,8 +141,7 @@ void turn(int direc) {
   goStraight();
   delay(15);
   goStraight();
-  delay(15);
-  goStraight();
+;
 }
 
 /*
