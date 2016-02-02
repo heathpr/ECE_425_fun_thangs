@@ -34,7 +34,7 @@
 #define MOVE_TIME 200
 
 #define TURN_TIME 650
-#define CELL_TIME 1750
+#define CELL_TIME 1450
 
 #define FORWARD_WALL 0
 #define FORWARD_BLIND 1
@@ -71,10 +71,17 @@ int magicIterator = -1;
 int iter = 0;
 int orientation = DOWN_DIR;
 int inputMap[4][4] = {
-  {15, 9, 3, 15},
-  {9, 4, 4, 3},
-  {10, 15, 15, 10},
-  {14, 15, 15, 14}
+  {11, 15, 15, 11},
+  {10, 13, 1, 2},
+  {8, 1, 6, 10},
+  {15, 14, 15, 14}
+};
+int visited[4][4] = {0};
+int waveFrontMap[4][4] = {
+  {99, 99, 99, 99},
+  {99, 99, 99, 99},
+  {99, 99, 99, 99},
+  {99, 99, 99, 99}
 };
 
 
@@ -82,6 +89,7 @@ int identifyState(void);
 void setPath(void);
 void createPath( int x, int y, int iter);
 void findMoves(int x, int y, int moves[]);
+void createMap(int x, int y, int i);
 
 
 
@@ -94,14 +102,20 @@ void setup() {
   Robot.stroke(0, 0, 0);
   getStartAndGoal();
   Robot.clearScreen();
-  findPath(startX, startY);
+  //findPath(startX, startY);
+  createMap(goalX, goalY, 0);
+  Robot.text("map", 5, 1);
+  for (int i = 0; i < 4; i++) {
+    for (int j = 0; j < 4; j++) {
+      Robot.debugPrint(waveFrontMap[j][i], 15 * (1 + i), (j + 1) * 9);
+    }
+  }
+  while (Robot.keyboardRead() != BUTTON_MIDDLE);
+  createPath(startX, startY, 0);
+
   int i = 0, x = startX, y = startY;
   while (i < 16) {
     Robot.debugPrint(1, 5 * (x + 1), 50 + 9 * (y + 1));
-    //    Robot.debugPrint(i, 5, 150);
-    //
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
     if (path[i] == 0) {
       break;
     }
@@ -131,7 +145,7 @@ void setup() {
 }
 
 void loop() {
-Robot.clearScreen();
+  Robot.clearScreen();
   switch (path[iter]) {
     case UP_DIR:
       switch (orientation) {
@@ -213,183 +227,7 @@ Robot.clearScreen();
   }
   iter++;
   delay(1000);
-  
-
 }
-
-void turn(int direc) {
-  goStraight();
-  goStraight();
-  Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
-  delay(TURN_TIME);
-  Robot.motorsStop();
-  goStraight();
-  goStraight();
-  goStraight();
-}
-
-void goStraight() {
-  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
-  delay(MOVE_TIME);
-  Robot.motorsStop();
-}
-
-void setPath(void) {
-  Robot.text("Enter start x", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
-    if (Robot.keyboardRead() == BUTTON_UP) {
-      startX++;
-    } else if (Robot.keyboardRead() == BUTTON_DOWN) {
-      startX--;
-    }
-    delay(BUTTON_TIME);
-    Robot.debugPrint(startX, 5, 9);
-  }
-  delay(BUTTON_TIME);
-  Robot.clearScreen();
-  Robot.text("Enter start y", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
-    if (Robot.keyboardRead() == BUTTON_UP) {
-      startY++;
-    } else if (Robot.keyboardRead() == BUTTON_DOWN) {
-      startY--;
-    }
-    delay(BUTTON_TIME);
-    Robot.debugPrint(startY, 5, 9);
-  }
-  delay(BUTTON_TIME);
-  Robot.clearScreen();
-  Robot.text("Enter goal x", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
-    if (Robot.keyboardRead() == BUTTON_UP) {
-      goalX++;
-    } else if (Robot.keyboardRead() == BUTTON_DOWN) {
-      goalX--;
-    }
-    delay(BUTTON_TIME);
-    Robot.debugPrint(goalX, 5, 9);
-  }
-  delay(BUTTON_TIME);
-  Robot.clearScreen();
-  Robot.text("Enter goal y", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
-    if (Robot.keyboardRead() == BUTTON_UP) {
-      goalY++;
-    } else if (Robot.keyboardRead() == BUTTON_DOWN) {
-      goalY--;
-    }
-    delay(BUTTON_TIME);
-    Robot.debugPrint(goalY, 5, 9);
-  }
-
-  createMap(goalX - 1, goalY, 0);
-  createMap(goalX + 1, goalY, 0);
-  createMap(goalX, goalY + 1, 0);
-  createMap(goalX, goalY - 1, 0);
-  Robot.clearScreen();
-  createPath(startX, startY, 0);
-}
-
-void createMap(int x, int y, int currentNum) {
-  if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[y][x] == 99 || (x == goalX && y == goalY)) {
-    return;
-  }
-  if (inputMap[y][x] == 0) {
-    inputMap[y][x] = ++currentNum;
-  } else {
-    return;
-  }
-
-  //  Robot.debugPrint(x, 5, 1);
-  //  Robot.debugPrint(y, 5, 9);
-  //  Robot.debugPrint(currentNum, 5, 17);
-  //  while (Robot.keyboardRead() != BUTTON_MIDDLE);
-  //  Robot.clearScreen();
-
-  createMap(x - 1, y, currentNum);
-  createMap(x + 1, y, currentNum);
-  createMap(x, y - 1, currentNum);
-  createMap(x, y + 1, currentNum);
-  return;
-}
-
-void createPath( int x, int y, int iter) {
-  if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[y][x] == 99 || inputMap[y][x] == 0) {
-    return;
-  }
-
-  int up = 99, down = 99, left = 99, right = 99;
-  if (x + 1 < 4) {
-    right = inputMap[y][x + 1];
-  }
-  if (x - 1 > -1) {
-    left = inputMap[y][x - 1];
-  }
-  if (y + 1 < 4) {
-    down = inputMap[y + 1][x];
-  }
-  if (y - 1 > -1) {
-    up = inputMap[y - 1][x];
-  }
-
-  //  Robot.debugPrint(x, 5, 1);
-  //  Robot.debugPrint(y, 5, 9);
-  //  Robot.debugPrint(iter, 5, 17);
-  //  Robot.debugPrint(up, 5, 50);
-  //  Robot.debugPrint(down, 5, 59);
-  //  Robot.debugPrint(left, 5, 68);
-  //  Robot.debugPrint(right, 5, 77);
-
-
-  if (up  <= down && up  <= left && up  <= right) {
-    path[iter] = UP_DIR;
-    //    Robot.text("going up", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
-    createPath(x, y - 1, iter + 1);
-  } else if (down  <= left && down  <= right) {
-    path[iter] = DOWN_DIR;
-    //    Robot.text("going down", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
-    createPath( x, y + 1, iter + 1);
-  } else if (left <= right) {
-    path[iter] = LEFT_DIR;
-    //    Robot.text("going left", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
-    createPath( x - 1, y, iter + 1);
-  } else {
-    path[iter] = RIGHT_DIR;
-    //    Robot.text("going right", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
-    createPath(x + 1, y, iter + 1);
-  }
-
-  return;
-}
-
-void turn90(int direc) {
-  if (direc == LEFT) {
-    Robot.text("turn left", 5, 85);
-  } else {
-    Robot.text("turn right", 5, 85);
-  }
-  Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
-  delay(TURN_TIME);
-  Robot.motorsStop();
-  delay(500);
-}
-
-void moveCell() {
-  Robot.text("driving forward", 5, 80);
-  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
-  delay(CELL_TIME);
-  Robot.motorsStop();
-  delay(500);
-}
-
 
 void getStartAndGoal() {
   Robot.text("Enter start x", 5, 1);
@@ -440,54 +278,30 @@ void getStartAndGoal() {
   }
 }
 
-bool findPath(int x, int y) {
-  if (x == goalX && y == goalY) {
-    return true;
+void createPath( int x, int y, int iter) {
+  if (x > 3 || x < 0 || y > 3 || y < 0 || waveFrontMap[y][x] == 99 || waveFrontMap[y][x] == 0) {
+    return;
   }
 
-  if (y < 0 || y > 3 || x < 0 || x > 3 || inputMap[y][x] == 16) {
-    return false;
-  }
-
+  int up = 99, down = 99, left = 99, right = 99, current = waveFrontMap[y][x];
 
   int moves[4] = {0};
   findMoves(x, y, moves);
-  Robot.debugPrint(x, 5, 1);
-  Robot.debugPrint(y, 15, 1);
-  for (int i = 0; i < 4; i++) {
-    Robot.debugPrint(moves[i], 10 * (i + 1), 10);
-  }
- // while (Robot.keyboardRead() != BUTTON_MIDDLE);
-  Robot.clearScreen();
-  inputMap[y][x] = 16;
-  magicIterator++;
-  bool output = false;
+
   for (int i = 0; i < 4; i++) {
     bool leave = false;
     switch (moves[i]) {
       case RIGHT_DIR:
-        if (findPath(x + 1, y)) {
-          output = true;
-          path[magicIterator] = RIGHT_DIR;
-        }
+        right = waveFrontMap[y][x + 1];
         break;
       case LEFT_DIR:
-        if (findPath(x - 1, y)) {
-          output = true;
-          path[magicIterator] = LEFT_DIR;
-        }
+        left = waveFrontMap[y][x - 1];
         break;
       case UP_DIR:
-        if (findPath(x, y - 1)) {
-          output = true;
-          path[magicIterator] = UP_DIR;
-        }
+        up = waveFrontMap[y - 1][x];
         break;
       case DOWN_DIR:
-        if (findPath(x, y + 1)) {
-          output = true;
-          path[magicIterator] = DOWN_DIR;
-        }
+        down = waveFrontMap[y + 1][x];
         break;
       default:
         leave = true;
@@ -498,8 +312,59 @@ bool findPath(int x, int y) {
     }
   }
 
-  magicIterator--;
-  return output;
+  if (current - 1 == up) {
+    path[iter] = UP_DIR;
+    createPath(x, y - 1, iter + 1);
+  } else if (current - 1 == down) {
+    path[iter] = DOWN_DIR;
+    createPath( x, y + 1, iter + 1);
+  } else if (current - 1 == left) {
+    path[iter] = LEFT_DIR;
+    createPath( x - 1, y, iter + 1);
+  } else {
+    path[iter] = RIGHT_DIR;
+    createPath(x + 1, y, iter + 1);
+  }
+  return;
+}
+
+void createMap(int x, int y, int iter) {
+  if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[y][x] == 15 || visited[y][x] == 1) {
+    return;
+  }
+  if (waveFrontMap[y][x] > iter) {
+    waveFrontMap[y][x] = iter;
+  } else {
+    return;
+  }
+  int moves[4] = {0};
+  findMoves(x, y, moves);
+  visited[y][x] = 1;
+
+  for (int i = 0; i < 4; i++) {
+    bool leave = false;
+    switch (moves[i]) {
+      case RIGHT_DIR:
+        createMap(x + 1, y, iter + 1);
+        break;
+      case LEFT_DIR:
+        createMap(x - 1, y, iter + 1);
+        break;
+      case UP_DIR:
+        createMap(x, y - 1, iter + 1);
+        break;
+      case DOWN_DIR:
+        createMap(x, y + 1, iter + 1);
+        break;
+      default:
+        leave = true;
+        break;
+    }
+    if (leave) {
+      break;
+    }
+  }
+  return;
 }
 
 void findMoves(int x, int y, int moves[]) {
@@ -527,6 +392,47 @@ void findMoves(int x, int y, int moves[]) {
   }
   return;
 }
+
+void turn(int direc) {
+  goStraight();
+  goStraight();
+  Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
+  delay(TURN_TIME);
+  Robot.motorsStop();
+  goStraight();
+  goStraight();
+  goStraight();
+}
+
+void goStraight() {
+  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
+  delay(MOVE_TIME);
+  Robot.motorsStop();
+}
+
+
+void turn90(int direc) {
+  if (direc == LEFT) {
+    Robot.text("turn left", 5, 85);
+  } else {
+    Robot.text("turn right", 5, 85);
+  }
+  Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
+  delay(TURN_TIME);
+  Robot.motorsStop();
+  delay(500);
+}
+
+void moveCell() {
+  Robot.text("driving forward", 5, 80);
+  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
+  delay(CELL_TIME);
+  Robot.motorsStop();
+  delay(500);
+}
+
+
+
 
 
 
