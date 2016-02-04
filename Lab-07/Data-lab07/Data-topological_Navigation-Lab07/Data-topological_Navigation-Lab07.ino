@@ -23,16 +23,6 @@
 #define MAX_IR 595
 #define NUM_SAMPLES 5
 
-// create an enum for each of the possible landmarks
-#define STRAIGHT_HALLWAY 0
-#define RIGHT_CORNER 1
-#define LEFT_CORNER 2
-#define DEAD_END 3
-#define LEFT_HALL 4
-#define RIGHT_HALL 5
-#define BOTH_HALL 6
-#define T_JUNCTION 7
-
 #define DIFFERENCE_THRESHOLD 5 // threshold from front sonar and side sonar to go into straight wall behavior
 
 // PD control constants for wall following
@@ -47,13 +37,6 @@
 #define MOVE_TIME 200
 #define TURN_TIME 500
 
-//create enum for each state the robot can be in
-#define FORWARD_WALL 0
-#define FORWARD_BLIND 1
-#define TURN_LEFT 2
-#define TURN_RIGHT 3
-#define STOP 4
-
 //dead band where the robot does not try to correct error
 #define LOW_BAND 1
 #define HIGH_BAND 1
@@ -65,14 +48,14 @@
 #define LEFT 1
 #define RIGHT -1
 
-//create protypes for functions
-bool leftWall = false;
-bool rightWall = false;
-bool frontWall = false;
 int previousValue = 0;
+
+//array that contains the path movements
 char path[10];
 int location = 0;
+
 bool stateChange = false;
+
 int identifyState(void);
 void setPath(void);
 
@@ -116,6 +99,37 @@ void loop() {
   }
 
 }
+/*
+ * function sets the path Data will follow
+ */
+void setPath(void) {
+  int i = 0;
+  Robot.text("Current path:", 5, 1);
+  while (1) {
+    if (Robot.keyboardRead() == BUTTON_LEFT) {
+      path[i] = 'L';
+      delay(150);
+      Robot.text('L', 5 * (i + 1), 9);
+      i++;
+    } else if (Robot.keyboardRead() == BUTTON_RIGHT) {
+      path[i] = 'R';
+      delay(150);
+      Robot.text('R', 5 * (i + 1), 9);
+      i++;
+    } else if (Robot.keyboardRead() == BUTTON_UP) {
+      path[i] = 'F';
+      delay(150);
+      Robot.text('F', 5 * (i + 1), 9);
+      i++;
+    } else if (Robot.keyboardRead() == BUTTON_MIDDLE) {
+      path[i] = 'S';
+      break;
+    }
+    if (i == 9) {
+      break;
+    }
+  }
+}
 
 
 /*
@@ -153,93 +167,50 @@ void goStraight() {
   Robot.motorsStop();
 }
 
-/*
- * function that takes user inputs via the buttons
- */
-void setPath(void) {
-  int i = 0;
-  Robot.text("Current path:", 5, 1);
-  while (1) {
-    if (Robot.keyboardRead() == BUTTON_LEFT) {
-      path[i] = 'L';
-      delay(150);
-      Robot.text('L', 5 * (i + 1), 9);
-      i++;
-    } else if (Robot.keyboardRead() == BUTTON_RIGHT) {
-      path[i] = 'R';
-      delay(150);
-      Robot.text('R', 5 * (i + 1), 9);
-      i++;
-    } else if (Robot.keyboardRead() == BUTTON_UP) {
-      path[i] = 'F';
-      delay(150);
-      Robot.text('F', 5 * (i + 1), 9);
-      i++;
-    } else if (Robot.keyboardRead() == BUTTON_MIDDLE) {
-      path[i] = 'S';
-      break;
-    }
-    if (i == 9) {
-      break;
-    }
-  }
-}
 
+/*
+ * arbiter that chooses the apropirate action depending on the state Data is in
+ * and the actions Data needs to take depending on the directions input at the begining
+ * 
+ * state - the state Data is in
+ */
 int chooseAction(int state) {
   char desiredAction = path[location];
   int action;
-  if (state == STRAIGHT_HALLWAY) {
+  
+  if (state == STRAIGHT_HALLWAY) {//if there are no turns
     action = FORWARD_WALL;
     if (stateChange) {
-      location++;
+      location++;// iterate through the list of directions inputted
       stateChange = false;
     }
-  } else if (desiredAction == 'L' && (state == RIGHT_CORNER || state == LEFT_HALL || state == BOTH_HALL || state == T_JUNCTION) ) {
+  } else if (desiredAction == 'L' && (state == RIGHT_CORNER || state == LEFT_HALL || state == BOTH_HALL || state == T_JUNCTION) ) {//if we want to turn left and can turn left
     action = TURN_LEFT;
     stateChange = true;
-  } else if (desiredAction == 'R' && (state == LEFT_CORNER || state == RIGHT_HALL || state == BOTH_HALL || state == T_JUNCTION)) {
+  } else if (desiredAction == 'R' && (state == LEFT_CORNER || state == RIGHT_HALL || state == BOTH_HALL || state == T_JUNCTION)) {//if we want to turn right and can turn right
     stateChange = true;
     action = TURN_RIGHT;
-  } else if (desiredAction == 'F' && (state == LEFT_HALL || state == RIGHT_HALL || state == BOTH_HALL)) {
+  } else if (desiredAction == 'F' && (state == LEFT_HALL || state == RIGHT_HALL || state == BOTH_HALL)) {//if we want to go forward and are at a junction go forward
     stateChange = true;
     action = FORWARD_BLIND;
-  } else if (desiredAction == 'L' &&  state == RIGHT_HALL) {
+  } else if (desiredAction == 'L' &&  state == RIGHT_HALL) {//if we want to turn left but are at a right turn go forward blindly (no wall following)
     action = FORWARD_BLIND;
     stateChange = true;
-  } else if (desiredAction == 'R' && state == LEFT_HALL) {
+  } else if (desiredAction == 'R' && state == LEFT_HALL) {//if we want to turn right but are at a left turn go forward blindly (no wall following)
     action = FORWARD_BLIND;
     stateChange = true;
   } else {
-    action = STOP;
+    action = STOP; //otherwise we are at the end and stop
   }
   return action;
 }
 
-
-void detectWalls(void) {
-  double leftWallDist = checkSonarPin(SONAR_LEFT);
-  double rightWallDist = checkSonarPin(SONAR_RIGHT);
-  double frontWallDist = checkSonarPin(SONAR_FRONT);
-
-  if (leftWallDist < WALL_DIST) {
-    leftWall = true;
-  } else {
-    leftWall = false;
-  }
-  if (rightWallDist < WALL_DIST) {
-    rightWall = true;
-  } else {
-    rightWall = false;
-  }
-  if (frontWallDist < WALL_DIST) {
-    frontWall = true;
-  } else {
-    frontWall = false;
-  }
-}
-
+/*
+ * identifies the state Data is in depending on the walls Data sees
+ */
 int identifyState(void) {
   int state = -1;
+  
   if (leftWall && rightWall && !frontWall) {
     state = STRAIGHT_HALLWAY;
     Robot.text("straight hall", 5, 9);
@@ -265,9 +236,40 @@ int identifyState(void) {
     state = T_JUNCTION;
     Robot.text("t junction", 5, 9);
   }
+  
   return state;
 }
 
+
+/*
+ * detects the walls around Data
+ */
+void detectWalls(void) {
+  double leftWallDist = checkSonarPin(SONAR_LEFT);
+  double rightWallDist = checkSonarPin(SONAR_RIGHT);
+  double frontWallDist = checkSonarPin(SONAR_FRONT);
+
+  if (leftWallDist < WALL_DIST) {
+    leftWall = true;
+  } else {
+    leftWall = false;
+  }
+  if (rightWallDist < WALL_DIST) {
+    rightWall = true;
+  } else {
+    rightWall = false;
+  }
+  if (frontWallDist < WALL_DIST) {
+    frontWall = true;
+  } else {
+    frontWall = false;
+  }
+}
+
+
+/*
+ * follows both walls keeping Data in the center
+ */
 void bothWallFollowing() {
   //poll sensors
   double front_left_wall = checkIRPin(IR_FRONT_LEFT) * sqrt(2) / 2;;

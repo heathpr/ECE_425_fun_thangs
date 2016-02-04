@@ -12,15 +12,6 @@
 #define MAX_IR 595
 #define NUM_SAMPLES 5
 
-#define STRAIGHT_HALLWAY 0
-#define RIGHT_CORNER 1
-#define LEFT_CORNER 2
-#define DEAD_END 3
-#define LEFT_HALL 4
-#define RIGHT_HALL 5
-#define BOTH_HALL 6
-#define T_JUNCTION 7
-
 #define DIFFERENCE_THRESHOLD 5 // threshold from front sonar and side sonar to go into straight wall behavior
 
 // PD control constants
@@ -36,21 +27,14 @@
 #define TURN_TIME 650
 #define CELL_TIME 1900
 
-#define FORWARD_WALL 0
-#define FORWARD_BLIND 1
-#define TURN_LEFT 2
-#define TURN_RIGHT 3
-#define STOP 4
-
 //dead band where the robot does not try to correct error
 #define LOW_BAND 1
 #define HIGH_BAND 1
 
-#define WALL_DIST 12
-
 #define LEFT 1
 #define RIGHT -1
 
+//movemnts the robot can do
 #define UP_DIR 1
 #define RIGHT_DIR 2
 #define DOWN_DIR 3
@@ -58,22 +42,15 @@
 
 #define BUTTON_TIME 100
 
-bool leftWall = false;
-bool rightWall = false;
-bool frontWall = false;
 int previousValue = 0;
+
+//path planning variables
 int startX = 0;
 int startY = 0;
 int goalX = 0;
 int goalY = 0;
 int path[16] = {0};
 int iter = 0;
-int orientation = DOWN_DIR;
-
-
-int identifyState(void);
-void setPath(void);
-void createPath( int x, int y, int iter);
 int inputMap[4][4] = {
   {0, 99, 99, 0},
   {0, 0, 0, 0},
@@ -81,6 +58,12 @@ int inputMap[4][4] = {
   {0, 99, 0, 0}
 };
 
+int orientation = DOWN_DIR; //starting orientation
+
+
+int identifyState(void);
+void setPath(void);
+void createPath( int x, int y, int iter);
 
 void setup() {
   // put your setup code here, to run once:
@@ -90,26 +73,31 @@ void setup() {
   Serial.begin(9600);
   Robot.stroke(0, 0, 0);
   setPath();
+  //create the map
+  createMap(goalX - 1, goalY, 1);
+  createMap(goalX + 1, goalY, 1);
+  createMap(goalX, goalY + 1, 1);
+  createMap(goalX, goalY - 1, 1);
   Robot.clearScreen();
+  
+  //create the path
+  createPath(startX, startY, 0);
+  Robot.clearScreen();
+
+  //print out the map
   Robot.text("map", 5, 1);
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       Robot.debugPrint(inputMap[j][i], 15 * (1 + i), (j + 1) * 9);
     }
   }
+
+  //print out the path
   int i = 0;
   int x = startX;
   int y = startY;
-  //  for(int j = 0;j<16;j++){
-  //    Robot.debugPrint(path[j],5*j,60);
-  //  }
-  //  while(Robot.keyboardRead()!=BUTTON_MIDDLE);
   while (i < 16) {
     Robot.debugPrint(1, 5 * (x + 1), 50 + 9 * (y + 1));
-    //    Robot.debugPrint(i, 5, 150);
-    //
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
     if (path[i] == 0) {
       break;
     }
@@ -130,14 +118,15 @@ void setup() {
     i++;
   }
   while (Robot.keyboardRead() != BUTTON_MIDDLE);
-
 }
+
 
 void loop() {
   Robot.clearScreen();
+  //switch based off of the movements in the path
   switch (path[iter]) {
-    case UP_DIR:
-      switch (orientation) {
+    case UP_DIR://go up
+      switch (orientation) {//turn to the up direction
         case UP_DIR:
           break;
         case DOWN_DIR:
@@ -154,8 +143,9 @@ void loop() {
       moveCell();
       orientation = path[iter];
       break;
-    case DOWN_DIR:
-      switch (orientation) {
+
+    case DOWN_DIR://go down
+      switch (orientation) {//turn to the down direction
         case UP_DIR:
           turn90(LEFT);
           turn90(LEFT);
@@ -173,17 +163,16 @@ void loop() {
       moveCell();
       orientation = path[iter];
       break;
-    case LEFT_DIR:
-      switch (orientation) {
+
+    case LEFT_DIR://go left
+      switch (orientation) {//turn to the left direction
         case UP_DIR:
           turn90(LEFT);
           break;
         case DOWN_DIR:
-
           turn90(RIGHT);
           break;
         case LEFT_DIR:
-
           break;
         case RIGHT_DIR:
           turn90(LEFT);
@@ -193,9 +182,9 @@ void loop() {
       moveCell();
       orientation = path[iter];
       break;
-    case RIGHT_DIR:
 
-      switch (orientation) {
+    case RIGHT_DIR://go right
+      switch (orientation) {//turn to the right direction
         case UP_DIR:
           turn90(RIGHT);
           break;
@@ -207,7 +196,6 @@ void loop() {
           turn90(RIGHT);
           break;
         case RIGHT_DIR:
-
           break;
       }
       moveCell();
@@ -216,27 +204,11 @@ void loop() {
   }
   iter++;
   delay(1000);
-  
-
 }
 
-void turn(int direc) {
-  goStraight();
-  goStraight();
-  Robot.motorsWrite(direc * TURN_SPEED, -direc * TURN_SPEED);
-  delay(TURN_TIME);
-  Robot.motorsStop();
-  goStraight();
-  goStraight();
-  goStraight();
-}
-
-void goStraight() {
-  Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
-  delay(MOVE_TIME);
-  Robot.motorsStop();
-}
-
+/*
+   asks for the user to input x and y coordinates for the goal and start
+*/
 void setPath(void) {
   Robot.text("Enter start x", 5, 1);
   while (Robot.keyboardRead() != BUTTON_MIDDLE) {
@@ -284,43 +256,50 @@ void setPath(void) {
     delay(BUTTON_TIME);
     Robot.debugPrint(goalY, 5, 9);
   }
-
-  createMap(goalX - 1, goalY, 0);
-  createMap(goalX + 1, goalY, 0);
-  createMap(goalX, goalY + 1, 0);
-  createMap(goalX, goalY - 1, 0);
-  Robot.clearScreen();
-  createPath(startX, startY, 0);
 }
 
+
+/*
+ * recursive algorithm that creates a wavefront propogation map
+ * 
+ * x - x coordinate
+ * y - y coordinate
+ * currentNum - current value to put into the map
+ */
 void createMap(int x, int y, int currentNum) {
+  //end case
   if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[y][x] == 99 || (x == goalX && y == goalY)) {
     return;
   }
+  //if the spot does not have a wavefront value give it a value
   if (inputMap[y][x] == 0) {
-    inputMap[y][x] = ++currentNum;
+    inputMap[y][x] = currentNum++;
   } else {
     return;
   }
 
-  //  Robot.debugPrint(x, 5, 1);
-  //  Robot.debugPrint(y, 5, 9);
-  //  Robot.debugPrint(currentNum, 5, 17);
-  //  while (Robot.keyboardRead() != BUTTON_MIDDLE);
-  //  Robot.clearScreen();
-
+  //iterate through all the other positions (bad cases are handled at the beginging of the createMap()
   createMap(x - 1, y, currentNum);
   createMap(x + 1, y, currentNum);
   createMap(x, y - 1, currentNum);
   createMap(x, y + 1, currentNum);
+  
   return;
 }
 
+/*
+ * recursively creates a path using the wavefront propagation map
+ * x- x coordinate
+ * y - y coordinate
+ * iter - iterator that goes through the path array
+ */
 void createPath( int x, int y, int iter) {
+  //end cases
   if (x > 3 || x < 0 || y > 3 || y < 0 || inputMap[y][x] == 99 || inputMap[y][x] == 0) {
     return;
   }
 
+  //populate each direction with their wavefront value
   int up = 99, down = 99, left = 99, right = 99;
   if (x + 1 < 4) {
     right = inputMap[y][x + 1];
@@ -335,44 +314,27 @@ void createPath( int x, int y, int iter) {
     up = inputMap[y - 1][x];
   }
 
-  //  Robot.debugPrint(x, 5, 1);
-  //  Robot.debugPrint(y, 5, 9);
-  //  Robot.debugPrint(iter, 5, 17);
-  //  Robot.debugPrint(up, 5, 50);
-  //  Robot.debugPrint(down, 5, 59);
-  //  Robot.debugPrint(left, 5, 68);
-  //  Robot.debugPrint(right, 5, 77);
-
-
+  //choose the direction with the lowest value and iterate
   if (up  <= down && up  <= left && up  <= right) {
     path[iter] = UP_DIR;
-    //    Robot.text("going up", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
     createPath(x, y - 1, iter + 1);
   } else if (down  <= left && down  <= right) {
     path[iter] = DOWN_DIR;
-    //    Robot.text("going down", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
     createPath( x, y + 1, iter + 1);
   } else if (left <= right) {
     path[iter] = LEFT_DIR;
-    //    Robot.text("going left", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
     createPath( x - 1, y, iter + 1);
   } else {
     path[iter] = RIGHT_DIR;
-    //    Robot.text("going right", 5, 40);
-    //    while (Robot.keyboardRead() != BUTTON_MIDDLE);
-    //    Robot.clearScreen();
     createPath(x + 1, y, iter + 1);
   }
 
   return;
 }
 
+/*
+ * turns 90 degrees in the inputted direction, unless it decides not to.
+ */
 void turn90(int direc) {
   if (direc == LEFT) {
     Robot.text("turn left", 5, 85);
@@ -385,6 +347,9 @@ void turn90(int direc) {
   delay(500);
 }
 
+/*
+ * moves one cell worth of distance foward
+ */
 void moveCell() {
   Robot.text("driving forward", 5, 80);
   Robot.motorsWrite(MOTOR_SPEED, MOTOR_SPEED);
