@@ -1,9 +1,7 @@
 /* Lab07 Peter Heath, Matthew Schack, and Data
-    last edited 1/26/16
+    last edited 2/7/16
 
-    Impliments wall following behavior based on PD control from sensor input
-    as well implements behaviour to deal with various landmarks and to 
-    navigate the given path by the user.
+    Impliments topological path planning using wavefront propagation.
     
     Based on the ArduinoRobot.h library for the Arduino Robot
 */
