@@ -1,3 +1,10 @@
+/* Lab07 Peter Heath, Matthew Schack, and Data
+    last edited 2/7/16
+
+    Impliments metric path planning using wavefront navigation.
+    
+    Based on the ArduinoRobot.h library for the Arduino Robot
+*/
 #include "ArduinoRobot.h"
 
 //define pins used
