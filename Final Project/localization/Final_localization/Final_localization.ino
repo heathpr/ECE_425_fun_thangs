@@ -37,6 +37,9 @@ int currentMap [4][4] = {
   {14, 15, 15, 14}
 };
 int pastPath[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+int pastOrientation[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+int xOptions[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+int yOptions[16] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
 bool leftWall = false;
 bool rightWall = false;
 bool upWall = false;
@@ -182,4 +185,51 @@ double checkSonarPin(int pin) {
   return output;
 }
 
+bool saveFirstPoint() {
+  int cell = pastPath[0];
+  int i = 0;
+  for (int j = 0; j < 4; j++) {
+    for (int k = 0; k < 4; k++) {
+      if (currentMap[j][k] == cell) {
+        xOptions[i] = k;
+        yOptions[i] = j;
+        i++;
+      }
+    }
+  }
+  if (i == 1) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool checkPath() {
+  int i = 0;
+  int cell;
+  int x[16] = {xOptions};
+  int y[16] = {yOptions};
+  int orientation = pastOrientation[1];
+  cell = pastPath[1];
+
+  switch (orientation) {
+    case UP_DIR:
+      while (x[i] != -1) {
+        if (y[i] != 0) {
+          if (currentMap[y[i] - 1][x[i]] == cell)
+
+          }
+      }
+      break;
+    case RIGHT_DIR:
+
+      break;
+    case DOWN_DIR:
+
+      break;
+    case LEFT_DIR:
+
+      break;
+  }
+}
 
