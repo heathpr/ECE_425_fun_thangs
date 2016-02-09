@@ -87,8 +87,8 @@ void setup() {
   createPath(startX, startY, 0);
   x = startX;
   y = startY;
-  int walls[4] = {0};
-  addMap(x, y,walls);
+  bool walls[4] = {0};
+  addMap(x, y, walls);
   chooseDirection(walls);
 }
 
@@ -112,8 +112,6 @@ void loop() {
           turn90(LEFT);
           break;
       }
-      moveCell();
-      orientation = path[iter];
       break;
 
     case DOWN_DIR://go down
@@ -132,8 +130,6 @@ void loop() {
           turn90(RIGHT);
           break;
       }
-      moveCell();
-      orientation = path[iter];
       break;
 
     case LEFT_DIR://go left
@@ -151,8 +147,6 @@ void loop() {
           turn90(LEFT);
           break;
       }
-      moveCell();
-      orientation = path[iter];
       break;
 
     case RIGHT_DIR://go right
@@ -170,31 +164,128 @@ void loop() {
         case RIGHT_DIR:
           break;
       }
-      moveCell();
-      orientation = path[iter];
       break;
   }
-
+  moveCell();
+  orientation = nextSquare;
   int walls[4] = {0};
-  addMap(x,y,walls);
+  addMap(x, y, walls);
   chooseDirection(walls);
   delay(1000);
 }
 
-void chooseDirection(int walls[]){
-  int[4] toGo ={99};
-  for(int i=0;i<4;i++){
-    if(!walls[i]){
-      if(i<=1){
-        toGo = 3-y;
-      }else{
-        toGo = 3-x;
+bool chooseDirection(int x, int y, int visited[]) {
+  if (x < 0 || y < 0 || x > 3 || y > 3 || visisted[y][x] == 1) {
+    return false;
+  }
+
+  visited[y][x] = 1;
+
+  bool up = 0, down = 0, left = 0, right = 0;
+  if (y > 0 && topoMap[y - 1][x] == 99) {
+    up = 1;
+  }
+  if (y < 2 && topoMap[y + 1][x] == 99) {
+    down = 1;
+  }
+  if (x > 0 && topoMap[y][x - 1] == 99) {
+    left = 1;
+  }
+  if (y > 0 && topoMap[y][x + 1] == 99) {
+    right = 1;
+  }
+
+  if (!up && !down && !left && ! right) {
+    up = chooseDirection(x, y - 1, visited);
+    down = chooseDirection(x, y + 1, visited);
+    left = chooseDirection(x - 1, y, visited);
+    right = chooseDirection(x + 1, y, visited);
+  }
+  
+  bool toBreak = false;
+  if (up) {
+    if (down) {
+      if (3 - y < y) {
+        down = false;
+      } else {
+        up = false;
+        toBreak = true;
+      }
+      if (toBreak) {
+        break;
+      }
+      if (left) {
+        if (x < y) {
+          left = false;
+        } else {
+          up = false;
+          toBreak = true;
+        }
+        if (toBreak) {
+          break;
+        }
+      }
+      if (right) {
+        if (3 - x < y) {
+          right = false;
+        } else {
+          up = false;
+          toBreak = true;
+        }
+        if (toBreak) {
+          break;
+        }
       }
     }
   }
-  nextSquare = UP_DIR;
-  int dist = toGo[0];
-  
+  toBreak = false;
+  if (down) {
+    if (left) {
+      if (x < 3 - y) {
+        left = false;
+      } else {
+        down = false;
+        toBreak = true;
+      }
+      if (toBreak) {
+        break;
+      }
+    }
+    if (right) {
+      if (3 - x < 3 - y) {
+        right = false;
+      } else {
+        down = false;
+        toBreak = true;
+      }
+      if (toBreak) {
+        break;
+      }
+    }
+  }
+  if (left) {
+    if (right) {
+      if (3 - x < x) {
+        right = false;
+      } else {
+        left = false;
+      }
+    }
+  }
+
+  if (up) {
+    nextSquare = UP_DIR;
+    return true;
+  } else if (down) {
+    nextSquare = DOWN_DIR;
+    return true;
+  } else if (left) {
+    nextSquare = LEFT_DIR;
+    return true;
+  } else if (right) {
+    nextSquare = RIGHT_DIR;
+    return true;
+  }
 }
 
 void printMap() {
