@@ -11,6 +11,7 @@
 #define IR_FRONT_LEFT M3
 #define SONAR_LEFT D2
 #define SONAR_RIGHT D0
+#define SONAR_BACK B_TK1
 
 //define constants for sensor data
 #define MIN_SONAR 483
@@ -28,6 +29,8 @@
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
 #define MOVE_TIME 200
+
+#define WALL_DIST 17
 
 #define TURN_TIME 650
 #define CELL_TIME 1900
@@ -63,15 +66,23 @@ int topoMap[4][4] = {
   {99, 99, 99, 99},
   {99, 99, 99, 99}
 };
+int wavefrontMap[4][4] = {
+  {99, 99, 99, 99},
+  {99, 99, 99, 99},
+  {99, 99, 99, 99},
+  {99, 99, 99, 99}
+};
 
 int orientation = DOWN_DIR; //starting orientation
 int nextSquare;
-
+bool mapComplete = false;
+bool wavefrontMade = false;
 
 int identifyState(void);
 void getXandY(void);
 void createPath( int x, int y, int iter);
-void printMap();
+void createMap(int x, int y, int i);
+void printMap(int input[][4]);
 
 void setup() {
   // put your setup code here, to run once:
@@ -83,13 +94,12 @@ void setup() {
   getXandY();
   Robot.clearScreen();
 
-  //create the path
-  createPath(startX, startY, 0);
   x = startX;
   y = startY;
-  bool walls[4] = {0};
-  addMap(x, y, walls);
-  chooseDirection(walls);
+  addMap(x, y);
+  bool visited[4][4] = {0};
+  chooseDirection(x, y, visited);
+  printMap(topoMap);
 }
 
 
@@ -112,6 +122,7 @@ void loop() {
           turn90(LEFT);
           break;
       }
+      y--;
       break;
 
     case DOWN_DIR://go down
@@ -130,6 +141,7 @@ void loop() {
           turn90(RIGHT);
           break;
       }
+      y++;
       break;
 
     case LEFT_DIR://go left
@@ -147,6 +159,7 @@ void loop() {
           turn90(LEFT);
           break;
       }
+      x--;
       break;
 
     case RIGHT_DIR://go right
@@ -164,22 +177,35 @@ void loop() {
         case RIGHT_DIR:
           break;
       }
+      x++;
       break;
   }
   moveCell();
   orientation = nextSquare;
-  int walls[4] = {0};
-  addMap(x, y, walls);
-  chooseDirection(walls);
+  Robot.debugPrint(nextSquare);
+  while(Robot.keyboardRead() != BUTTON_MIDDLE);
+  if (!mapComplete) {
+    bool visited[4][4] = {0};
+    addMap(x, y);
+    if (!chooseDirection(x, y, visited)) {
+      mapComplete = true;
+      createMap(goalX,goalY,0);
+      createPath(x,y,0);
+      printMap(wavefrontMap);
+    }
+  } else {
+    nextSquare = path[++iter];
+  }
+  printMap(topoMap);
   delay(1000);
 }
 
-bool chooseDirection(int x, int y, int visited[]) {
-  if (x < 0 || y < 0 || x > 3 || y > 3 || visisted[y][x] == 1) {
+bool chooseDirection(int x, int y, bool visited[][4]) {
+  if (x < 0 || y < 0 || x > 3 || y > 3 || visited[y][x]) {
     return false;
   }
 
-  visited[y][x] = 1;
+  visited[y][x] = true;
 
   bool up = 0, down = 0, left = 0, right = 0;
   if (y > 0 && topoMap[y - 1][x] == 99) {
@@ -201,54 +227,38 @@ bool chooseDirection(int x, int y, int visited[]) {
     left = chooseDirection(x - 1, y, visited);
     right = chooseDirection(x + 1, y, visited);
   }
-  
-  bool toBreak = false;
+
+
   if (up) {
     if (down) {
       if (3 - y < y) {
         down = false;
       } else {
         up = false;
-        toBreak = true;
       }
-      if (toBreak) {
-        break;
+    }
+    if (left) {
+      if (x < y) {
+        left = false;
+      } else {
+        up = false;
       }
-      if (left) {
-        if (x < y) {
-          left = false;
-        } else {
-          up = false;
-          toBreak = true;
-        }
-        if (toBreak) {
-          break;
-        }
-      }
-      if (right) {
-        if (3 - x < y) {
-          right = false;
-        } else {
-          up = false;
-          toBreak = true;
-        }
-        if (toBreak) {
-          break;
-        }
+    }
+    if (right) {
+      if (3 - x < y) {
+        right = false;
+      } else {
+        up = false;
       }
     }
   }
-  toBreak = false;
+
   if (down) {
     if (left) {
       if (x < 3 - y) {
         left = false;
       } else {
         down = false;
-        toBreak = true;
-      }
-      if (toBreak) {
-        break;
       }
     }
     if (right) {
@@ -256,10 +266,6 @@ bool chooseDirection(int x, int y, int visited[]) {
         right = false;
       } else {
         down = false;
-        toBreak = true;
-      }
-      if (toBreak) {
-        break;
       }
     }
   }
@@ -286,18 +292,20 @@ bool chooseDirection(int x, int y, int visited[]) {
     nextSquare = RIGHT_DIR;
     return true;
   }
+  return false;
 }
 
-void printMap() {
+void printMap(int input[][4]) {
   Robot.clearScreen();
 
   //print out the map
   Robot.text("map", 5, 1);
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
-      Robot.debugPrint(inputMap[j][i], 15 * (1 + i), (j + 1) * 9);
+      Robot.debugPrint(input[j][i], 15 * (1 + i), (j + 1) * 9);
     }
   }
+  while(Robot.keyboardRead() != BUTTON_MIDDLE);
 }
 
 /*
@@ -353,7 +361,7 @@ void getXandY(void) {
 }
 
 
-void addMap(int x, int y, int walls[]) {
+void addMap(int x, int y) {
   int up = checkSonarPin(SONAR_FRONT);
   int left = checkSonarPin(SONAR_LEFT);
   int right = checkSonarPin(SONAR_RIGHT);
@@ -367,7 +375,7 @@ void addMap(int x, int y, int walls[]) {
       tempDir = left;
       left = right;
       right = tempDir;
-      tempDir = front;
+      tempDir = up;
       up = down;
       down = tempDir;
       break;
@@ -387,7 +395,8 @@ void addMap(int x, int y, int walls[]) {
       break;
   }
 
-  int wallsDist[4] = {up, down.left, right};
+  int wallDist[4] = {up, down, left, right};
+  bool walls[4] = {0};
   detectWalls(wallDist, walls);
   if (x != 0 && walls[2]) {
     topoMap[y][x - 1] = 15;
@@ -405,6 +414,189 @@ void addMap(int x, int y, int walls[]) {
   topoMap[y][x] = defineSquare(walls);
   return;
 
+}
+
+int defineSquare(bool walls[]) {
+  bool upWall = walls[0];
+  bool downWall = walls[1];
+  bool leftWall = walls[2];
+  bool rightWall = walls[3];
+  int value = 15;
+  if (leftWall && rightWall && downWall && upWall) {
+    value = 15;
+  } else if (leftWall && rightWall && downWall && !upWall) {
+    value = 14;
+  } else if (leftWall && !rightWall && downWall && upWall) {
+    value = 13;
+  } else if (leftWall && !rightWall && downWall && !upWall) {
+    value = 12;
+  } else if (leftWall && rightWall && !downWall && upWall) {
+    value = 11;
+  } else if (leftWall && rightWall && !downWall && !upWall) {
+    value = 10;
+  } else if (leftWall && !rightWall && !downWall && upWall) {
+    value = 9;
+  } else if (leftWall && !rightWall && !downWall && !upWall) {
+    value = 8;
+  } else if (!leftWall && rightWall && downWall && upWall) {
+    value = 7;
+  } else if (!leftWall && rightWall && downWall && !upWall) {
+    value = 6;
+  } else if (!leftWall && !rightWall && downWall && upWall) {
+    value = 5;
+  } else if (!leftWall && !rightWall && downWall && !upWall) {
+    value = 4;
+  } else if (!leftWall && rightWall && !downWall && upWall) {
+    value = 3;
+  } else if (!leftWall && rightWall && !downWall && !upWall) {
+    value = 2;
+  } else if (!leftWall && !rightWall && !downWall && upWall) {
+    value = 1;
+  } else {
+    value = 0;
+  }
+}
+
+/*
+   finds all the valid moves that can be performed at the input x and y coordinate
+   x - x coordinate
+   y - y coordinate
+   moves - the array that the moves are added to
+*/
+void findMoves(int x, int y, int moves[]) {
+  if (topoMap[y][x] == 15) {
+    return;
+  }
+  int i = 0;
+  if (topoMap[y][x] != 2 && topoMap[y][x] != 3 && topoMap[y][x] != 6 &&
+      topoMap[y][x] != 10 && topoMap[y][x] != 11 && topoMap[y][x] != 14) {
+    moves[i++] = RIGHT_DIR;
+  }
+
+  if (topoMap[y][x] != 8 && topoMap[y][x] != 9 && topoMap[y][x] != 10 &&
+      topoMap[y][x] != 11 && topoMap[y][x] != 12 && topoMap[y][x] != 13 && topoMap[y][x] != 14) {
+    moves[i++] = LEFT_DIR;
+  }
+  if (topoMap[y][x] != 1 && topoMap[y][x] != 3 && topoMap[y][x] != 5 &&
+      topoMap[y][x] != 7 && topoMap[y][x] != 9 && topoMap[y][x] != 11 && topoMap[y][x] != 13) {
+    moves[i++] = UP_DIR;
+  }
+
+  if (topoMap[y][x] != 4 && topoMap[y][x] != 5 && topoMap[y][x] != 6 &&
+      topoMap[y][x] != 7 && topoMap[y][x] != 12 && topoMap[y][x] != 13 && topoMap[y][x] != 14) {
+    moves[i++] = DOWN_DIR;
+  }
+  return;
+}
+
+
+/*
+   recursively creates the wavefront map
+   x - x coordinate
+   y - y coordinate
+   iter - wavefront value
+*/
+void createMap(int x, int y, int iter) {
+  //break case
+  if (x > 3 || x < 0 || y > 3 || y < 0 || topoMap[y][x] == 15 || wavefrontMap[y][x] < iter) {
+    return;
+  }
+  //if the current wavefront value is greater than iter set the wavefront value to iter
+  //(the map initializes at 99)
+  if (wavefrontMap[y][x] > iter) {
+    wavefrontMap[y][x] = iter;
+  } else {
+    return;
+  }
+
+  //find valid moves
+  int moves[4] = {0};
+  findMoves(x, y, moves);
+
+  //recursively call it for every valid move
+  for (int i = 0; i < 4; i++) {
+    bool leave = false;
+    switch (moves[i]) {
+      case RIGHT_DIR:
+        createMap(x + 1, y, iter + 1);
+        break;
+      case LEFT_DIR:
+        createMap(x - 1, y, iter + 1);
+        break;
+      case UP_DIR:
+        createMap(x, y - 1, iter + 1);
+        break;
+      case DOWN_DIR:
+        createMap(x, y + 1, iter + 1);
+        break;
+      default:
+        leave = true;
+        break;
+    }
+    if (leave) {
+      break;
+    }
+  }
+  return;
+}
+
+/*
+ * recursively creates the path the robot is going to follow
+ * x - x coordinate
+ * y - y coordinate
+ * iter - where in the path array the direction goes
+ */
+void createPath( int x, int y, int iter) {
+  //break case
+  if (x > 3 || x < 0 || y > 3 || y < 0 || wavefrontMap[y][x] == 99 || wavefrontMap[y][x] == 0) {
+    return;
+  }
+
+  int up = 99, down = 99, left = 99, right = 99, current = wavefrontMap[y][x];
+
+  int moves[4] = {0};
+  findMoves(x, y, moves);//only check directions where there is not a wall
+
+  for (int i = 0; i < 4; i++) {
+    bool leave = false;
+    //find stored wavefront values for valid directions
+    switch (moves[i]) {
+      case RIGHT_DIR:
+        right = wavefrontMap[y][x + 1];
+        break;
+      case LEFT_DIR:
+        left = wavefrontMap[y][x - 1];
+        break;
+      case UP_DIR:
+        up = wavefrontMap[y - 1][x];
+        break;
+      case DOWN_DIR:
+        down = wavefrontMap[y + 1][x];
+        break;
+      default:
+        leave = true;
+        break;
+    }
+    if (leave) {
+      break;
+    }
+  }
+
+  //go in the directions that is exactly one less than the current wavefront value
+  if (current - 1 == up) {
+    path[iter] = UP_DIR;
+    createPath(x, y - 1, iter + 1);
+  } else if (current - 1 == down) {
+    path[iter] = DOWN_DIR;
+    createPath( x, y + 1, iter + 1);
+  } else if (current - 1 == left) {
+    path[iter] = LEFT_DIR;
+    createPath( x - 1, y, iter + 1);
+  } else {
+    path[iter] = RIGHT_DIR;
+    createPath(x + 1, y, iter + 1);
+  }
+  return;
 }
 
 /*
@@ -440,10 +632,13 @@ void moveCell() {
    walls[] = [up,down,left,right]
 */
 void detectWalls(int wallDist[], bool walls[]) {
-  int upWallDist = wallDist[0]
-                   int downWallDist = wallDist[1];
+  int upWallDist = wallDist[0];
+  int downWallDist = wallDist[1];
   int leftWallDist = wallDist[2];
   int rightWallDist = wallDist[3];
+  for(int i=0;i<3;i++){
+  Robot.debugPrint(wallDist[i],30*i+1,1);
+  }
 
   if (leftWallDist < WALL_DIST) {
     walls[2] = true;
@@ -455,7 +650,7 @@ void detectWalls(int wallDist[], bool walls[]) {
   } else {
     walls[3] = false;
   }
-  if (frontWallDist < WALL_DIST) {
+  if (upWallDist < WALL_DIST) {
     walls[0] = true;
   } else {
     walls[0] = false;
@@ -465,6 +660,11 @@ void detectWalls(int wallDist[], bool walls[]) {
   } else {
     walls[1] = false;
   }
+//    for(int i=0;i<3;i++){
+//  Robot.debugPrint(walls[i],10*i+1,10);
+//  }
+  while(Robot.keyboardRead() !=BUTTON_MIDDLE);
+  
 }
 
 /*
@@ -491,7 +691,7 @@ double checkSonarPin(int pin) {
   }
   output = output / NUM_SAMPLES;
   if (output <= 0) {
-    output = 99999998; // low output is set to a very large distance
+    output = 9998; // low output is set to a very large distance
   }
   return output;
 }
