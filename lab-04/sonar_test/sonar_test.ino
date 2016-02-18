@@ -63,7 +63,7 @@ double checkSonarPin(int pin) {
 
 void loop() {
   // put your main code here, to run repeatedly:
-  Robot.debugPrint(checkSonarPin(B_TK1));
+  Robot.debugPrint(checkSonarPin(SONAR_RIGHT));
   delay(100);
   Robot.clearScreen();
 

@@ -53,11 +53,9 @@
 int previousValue = 0;
 
 //path planning variables
-int startX = 0;
-int startY = 0;
 int goalX = 0;
 int goalY = 0;
-int x, y;
+int x=2, y=2;
 int path[16] = {0};
 int iter = 0;
 int topoMap[4][4] = {
@@ -83,6 +81,7 @@ void getXandY(void);
 void createPath( int x, int y, int iter);
 void createMap(int x, int y, int i);
 void printMap(int input[][4]);
+void   addMap();
 
 void setup() {
   // put your setup code here, to run once:
@@ -93,10 +92,7 @@ void setup() {
   Robot.stroke(0, 0, 0);
   getXandY();
   Robot.clearScreen();
-
-  x = startX;
-  y = startY;
-  addMap(x, y);
+  addMap();
   bool visited[4][4] = {0};
   chooseDirection(x, y, visited);
   printMap(topoMap);
@@ -185,7 +181,7 @@ void loop() {
   while (Robot.keyboardRead() != BUTTON_MIDDLE);
   if (!mapComplete) {
     bool visited[4][4] = {0};
-    addMap(x, y);
+    addMap();
     if (!chooseDirection(x, y, visited)) {
       mapComplete = true;
       createMap(goalX, goalY, 0);
@@ -229,15 +225,15 @@ bool chooseDirection(int x, int y, bool visited[][4]) {
     left = chooseDirection(x - 1, y, visited);
     right = chooseDirection(x + 1, y, visited);
   }
-//
-//  Robot.clearScreen();
-//  Robot.debugPrint(x,5,100);
-//  Robot.debugPrint(y,25,100);
-//  Robot.debugPrint(up, 5, 1);
-//  Robot.debugPrint(down, 15, 1);
-//  Robot.debugPrint(left, 25, 1);
-//  Robot.debugPrint(right, 35, 1);
-//  while(Robot.keyboardRead() !=BUTTON_MIDDLE);
+  //
+  //  Robot.clearScreen();
+  //  Robot.debugPrint(x,5,100);
+  //  Robot.debugPrint(y,25,100);
+  //  Robot.debugPrint(up, 5, 1);
+  //  Robot.debugPrint(down, 15, 1);
+  //  Robot.debugPrint(left, 25, 1);
+  //  Robot.debugPrint(right, 35, 1);
+  //  while(Robot.keyboardRead() !=BUTTON_MIDDLE);
 
   if (up) {
     if (down) {
@@ -322,29 +318,6 @@ void printMap(int input[][4]) {
    asks for the user to input x and y coordinates for the goal and start
 */
 void getXandY(void) {
-  Robot.text("Enter start x", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
-    if (Robot.keyboardRead() == BUTTON_UP) {
-      startX++;
-    } else if (Robot.keyboardRead() == BUTTON_DOWN) {
-      startX--;
-    }
-    delay(BUTTON_TIME);
-    Robot.debugPrint(startX, 5, 9);
-  }
-  delay(BUTTON_TIME);
-  Robot.clearScreen();
-  Robot.text("Enter start y", 5, 1);
-  while (Robot.keyboardRead() != BUTTON_MIDDLE) {
-    if (Robot.keyboardRead() == BUTTON_UP) {
-      startY++;
-    } else if (Robot.keyboardRead() == BUTTON_DOWN) {
-      startY--;
-    }
-    delay(BUTTON_TIME);
-    Robot.debugPrint(startY, 5, 9);
-  }
-  delay(BUTTON_TIME);
   Robot.clearScreen();
   Robot.text("Enter goal x", 5, 1);
   while (Robot.keyboardRead() != BUTTON_MIDDLE) {
@@ -371,7 +344,7 @@ void getXandY(void) {
 }
 
 
-void addMap(int x, int y) {
+void addMap() {
   int up = checkSonarPin(SONAR_FRONT);
   int left = checkSonarPin(SONAR_LEFT);
   int right = checkSonarPin(SONAR_RIGHT);
@@ -408,6 +381,33 @@ void addMap(int x, int y) {
   int wallDist[4] = {up, down, left, right};
   bool walls[4] = {0};
   detectWalls(wallDist, walls);
+
+  if (x == 0 && !walls[2]) {
+    shiftMap(RIGHT_DIR);
+    Robot.text("shifting right",1,1);
+    while(Robot.keyboardRead() != BUTTON_MIDDLE);
+    x++;
+  }
+  if (x == 3 && !walls[3]) {
+    shiftMap(LEFT_DIR);
+    Robot.text("shifting left",1,1);
+    while(Robot.keyboardRead() != BUTTON_MIDDLE);
+    x--;
+  }
+  if (y == 0 && !walls[0]) {
+    shiftMap(DOWN_DIR);
+    Robot.text("shifting down",1,1);
+    while(Robot.keyboardRead() != BUTTON_MIDDLE);
+    y++;
+  }
+  if (y == 3 && !walls[1]) {
+    shiftMap(UP_DIR);
+    Robot.text("shifting up",1,1);
+    while(Robot.keyboardRead() != BUTTON_MIDDLE);
+    y--;
+  }
+  
+
   if (x != 0 && walls[2]) {
     topoMap[y][x - 1] = 15;
   }
@@ -422,8 +422,44 @@ void addMap(int x, int y) {
   }
 
   topoMap[y][x] = defineSquare(walls);
-  return;
 
+  return;
+}
+
+void shiftMap(int dir) {
+  int tempVal[4];
+  for (int i = 0; i < 16; i++) {
+    switch (dir) {
+      case UP_DIR:
+        if (i >= 12) {
+          topoMap[i / 4][i % 4] = 99;
+        } else {
+          topoMap[i / 4][i % 4] = topoMap[1 + i / 4][i % 4];
+        }
+        break;
+      case DOWN_DIR:
+        if (i >= 12) {
+          topoMap[3 - i / 4][i % 4] = 99;
+        } else {
+          topoMap[3 - i / 4][i % 4] = topoMap[3 - (1 + i / 4)][i % 4];
+        }
+        break;
+      case LEFT_DIR:
+        if (i >= 12) {
+          topoMap[i % 4][i / 4] = 99;
+        } else {
+          topoMap[i % 4][i / 4] = topoMap[i % 4][1 + i / 4];
+        }
+        break;
+      case RIGHT_DIR:
+        if (i >= 12) {
+          topoMap[i % 4][3 - i / 4] = 99;
+        } else {
+          topoMap[i % 4][3 - i / 4] = topoMap[i % 4][3 - (1 + i / 4)];
+        }
+        break;
+    }
+  }
 }
 
 int defineSquare(bool walls[]) {
