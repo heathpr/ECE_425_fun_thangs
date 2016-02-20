@@ -1,5 +1,8 @@
 /* Final Peter Heath, Matthew Schack, and Data
-    last edited 2/7/16
+    last edited 2/20/16
+
+    Impliments map making algorithms for a 4x4 maze.
+    After the maze is completely mapped it uses wavefront propagation to move to a goal point.
 
     Based on the ArduinoRobot.h library for the Arduino Robot
 */
@@ -15,30 +18,20 @@
 
 //define constants for sensor data
 #define MIN_SONAR 483
-#define MAX_IR 595
 #define NUM_SAMPLES 5
 
-#define DIFFERENCE_THRESHOLD 5 // threshold from front sonar and side sonar to go into straight wall behavior
-
-// PD control constants
-#define KP 15
-#define KD 2
-
-#define MAX_MOTOR_SPEED 255
-#define MIN_MOTOR_SPEED 125
+//motor speeds for movement
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
-#define MOVE_TIME 200
 
+//max distance where data sees a wall
 #define WALL_DIST 17
 
+//movement times for 90 degree turns and 1 cell of movement
 #define TURN_TIME 750
 #define CELL_TIME 1550
 
-//dead band where the robot does not try to correct error
-#define LOW_BAND 1
-#define HIGH_BAND 1
-
+//constants denoting which way to turn
 #define LEFT 1
 #define RIGHT -1
 
@@ -48,18 +41,21 @@
 #define DOWN_DIR 3
 #define LEFT_DIR 4
 
+//delay for reading button pushes
 #define BUTTON_TIME 100
 
-int previousValue = 0;
-
-//path planning variables
+//map making variables
 int startX = 0;
 int startY = 0;
 int goalX = 0;
 int goalY = 0;
 int x, y;
-int path[16] = {0};
-int iter = 0;
+
+//path planning variables
+int path[16] = {0}; //the movements to make
+int iter = 0;//where we are in the path
+
+//differnt maps to be populated
 int topoMap[4][4] = {
   {99, 99, 99, 99},
   {99, 99, 99, 99},
@@ -76,7 +72,6 @@ int wavefrontMap[4][4] = {
 int orientation = DOWN_DIR; //starting orientation
 int nextSquare;
 bool mapComplete = false;
-bool wavefrontMade = false;
 
 int identifyState(void);
 void getXandY(void);
@@ -91,9 +86,9 @@ void setup() {
   Robot.beginSD();
   Serial.begin(9600);
   Robot.stroke(0, 0, 0);
+
   getXandY();
   Robot.clearScreen();
-
   x = startX;
   y = startY;
   addMap(x, y);
@@ -105,6 +100,10 @@ void setup() {
 
 void loop() {
   Robot.clearScreen();
+  if (nextSquare == 0) {
+    Robot.text("I have arrived at the goal", 1, 1);
+    while (1);
+  }
   //switch based off of the movements in the path
   switch (nextSquare) {
     case UP_DIR://go up
@@ -182,33 +181,43 @@ void loop() {
   }
   moveCell();
   orientation = nextSquare;
-  while (Robot.keyboardRead() != BUTTON_MIDDLE);
+
   if (!mapComplete) {
     bool visited[4][4] = {0};
     addMap(x, y);
-    if (!chooseDirection(x, y, visited)) {
+    if (!chooseDirection(x, y, visited)) { //if choose directions returns false there is no more spots to map
       mapComplete = true;
       createMap(goalX, goalY, 0);
       createPath(x, y, 0);
       printMap(wavefrontMap);
       iter = 0;
-      orientation = path[iter];
-      nextSquare = path[++iter];
+      nextSquare = path[iter];
     }
   } else {
     nextSquare = path[++iter];
   }
   printMap(topoMap);
-  delay(1000);
 }
 
+
+/*
+   recursively chooses the direction to go to map the entire area
+   if there is more than one direction to map we choose to go in the direction that is closer to the border
+   we do this because the ones closer to the border are more likely to be dead ends so Data can map the maze quicker
+
+   x - x coordinate
+   y - y coordinate
+   visited - an array of what locations have been previously visited by other recursive calls
+*/
 bool chooseDirection(int x, int y, bool visited[][4]) {
+  //break case
   if (x < 0 || y < 0 || x > 3 || y > 3 || visited[y][x] || topoMap[y][x] == 15) {
     return false;
   }
 
   visited[y][x] = true;
 
+  //find unmapped directions directly ajasent
   bool up = 0, down = 0, left = 0, right = 0;
   if (y > 0 && topoMap[y - 1][x] == 99) {
     up = 1;
@@ -223,22 +232,15 @@ bool chooseDirection(int x, int y, bool visited[][4]) {
     right = 1;
   }
 
+  //if there are no unmapped directions directly ajasent
   if (!up && !down && !left && ! right) {
+    //recursively call the function on each direction
     up = chooseDirection(x, y - 1, visited);
     down = chooseDirection(x, y + 1, visited);
     left = chooseDirection(x - 1, y, visited);
     right = chooseDirection(x + 1, y, visited);
   }
-//
-//  Robot.clearScreen();
-//  Robot.debugPrint(x,5,100);
-//  Robot.debugPrint(y,25,100);
-//  Robot.debugPrint(up, 5, 1);
-//  Robot.debugPrint(down, 15, 1);
-//  Robot.debugPrint(left, 25, 1);
-//  Robot.debugPrint(right, 35, 1);
-//  while(Robot.keyboardRead() !=BUTTON_MIDDLE);
-
+  //if there is more than one valid direction set the ones farther away from the border to false
   if (up) {
     if (down) {
       if (3 - y > y) {
@@ -289,6 +291,7 @@ bool chooseDirection(int x, int y, bool visited[][4]) {
     }
   }
 
+  //set the next movement to the valid direction and return true
   if (up) {
     nextSquare = UP_DIR;
     return true;
@@ -302,9 +305,16 @@ bool chooseDirection(int x, int y, bool visited[][4]) {
     nextSquare = RIGHT_DIR;
     return true;
   }
+
+  //if at the end there is still no valid direction return false
   return false;
 }
 
+/*
+   prints out the map and then waits for a button press to return
+
+   intput - the map to print
+*/
 void printMap(int input[][4]) {
   Robot.clearScreen();
 
@@ -334,6 +344,7 @@ void getXandY(void) {
   }
   delay(BUTTON_TIME);
   Robot.clearScreen();
+
   Robot.text("Enter start y", 5, 1);
   while (Robot.keyboardRead() != BUTTON_MIDDLE) {
     if (Robot.keyboardRead() == BUTTON_UP) {
@@ -346,6 +357,7 @@ void getXandY(void) {
   }
   delay(BUTTON_TIME);
   Robot.clearScreen();
+
   Robot.text("Enter goal x", 5, 1);
   while (Robot.keyboardRead() != BUTTON_MIDDLE) {
     if (Robot.keyboardRead() == BUTTON_UP) {
@@ -358,6 +370,7 @@ void getXandY(void) {
   }
   delay(BUTTON_TIME);
   Robot.clearScreen();
+
   Robot.text("Enter goal y", 5, 1);
   while (Robot.keyboardRead() != BUTTON_MIDDLE) {
     if (Robot.keyboardRead() == BUTTON_UP) {
@@ -370,7 +383,12 @@ void getXandY(void) {
   }
 }
 
+/*
+   adds a point to the currentMap
 
+   x - the x coordinate to add
+   y - the y coordinate to add
+*/
 void addMap(int x, int y) {
   int up = checkSonarPin(SONAR_FRONT);
   int left = checkSonarPin(SONAR_LEFT);
@@ -405,9 +423,12 @@ void addMap(int x, int y) {
       break;
   }
 
+  //convert sensor distances to a true/false wall presence
   int wallDist[4] = {up, down, left, right};
   bool walls[4] = {0};
   detectWalls(wallDist, walls);
+
+  //set the squares with walls to 15
   if (x != 0 && walls[2]) {
     topoMap[y][x - 1] = 15;
   }
@@ -421,17 +442,57 @@ void addMap(int x, int y) {
     topoMap[y + 1][x] = 15;
   }
 
-  topoMap[y][x] = defineSquare(walls);
+  topoMap[y][x] = defineSquare(walls); // set the value for the current square
   return;
 
 }
 
+/*
+   detects the walls around Data
+   wallDist =  [upDist,downDist,leftDist,rightDist]
+   walls[] = [up,down,left,right]
+*/
+void detectWalls(int wallDist[], bool walls[]) {
+  int upWallDist = wallDist[0];
+  int downWallDist = wallDist[1];
+  int leftWallDist = wallDist[2];
+  int rightWallDist = wallDist[3];
+
+  if (leftWallDist < WALL_DIST) {
+    walls[2] = true;
+  } else {
+    walls[2] = false;
+  }
+  if (rightWallDist < WALL_DIST) {
+    walls[3] = true;
+  } else {
+    walls[3] = false;
+  }
+  if (upWallDist < WALL_DIST) {
+    walls[0] = true;
+  } else {
+    walls[0] = false;
+  }
+  if (downWallDist < WALL_DIST) {
+    walls[1] = true;
+  } else {
+    walls[1] = false;
+  }
+
+}
+
+/*
+   returns the topological representation of square
+
+   walls - a boolean array of whether there are walls in each direction
+*/
 int defineSquare(bool walls[]) {
   bool upWall = walls[0];
   bool downWall = walls[1];
   bool leftWall = walls[2];
   bool rightWall = walls[3];
-  int value = 15;
+  int value;
+
   if (leftWall && rightWall && downWall && upWall) {
     value = 15;
   } else if (leftWall && rightWall && downWall && !upWall) {
@@ -634,41 +695,6 @@ void moveCell() {
   delay(CELL_TIME);
   Robot.motorsStop();
   delay(500);
-}
-
-
-/*
-   detects the walls around Data
-   wallDist =  [upDist,downDist,leftDist,rightDist]
-   walls[] = [up,down,left,right]
-*/
-void detectWalls(int wallDist[], bool walls[]) {
-  int upWallDist = wallDist[0];
-  int downWallDist = wallDist[1];
-  int leftWallDist = wallDist[2];
-  int rightWallDist = wallDist[3];
-
-  if (leftWallDist < WALL_DIST) {
-    walls[2] = true;
-  } else {
-    walls[2] = false;
-  }
-  if (rightWallDist < WALL_DIST) {
-    walls[3] = true;
-  } else {
-    walls[3] = false;
-  }
-  if (upWallDist < WALL_DIST) {
-    walls[0] = true;
-  } else {
-    walls[0] = false;
-  }
-  if (downWallDist < WALL_DIST) {
-    walls[1] = true;
-  } else {
-    walls[1] = false;
-  }
-
 }
 
 /*

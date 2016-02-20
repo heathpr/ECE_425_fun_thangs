@@ -1,7 +1,17 @@
+/* Localization Peter Heath, Matthew Schack, and Data
+    last edited 2/20/16
+
+    Impliments localizatoin algorithms for a 4x4 maze.
+    After Data localizes it uses wavefront propagation to move to a goal point.
+
+    Based on the ArduinoRobot.h library for the Arduino Robot
+*/
 #include "ArduinoRobot.h"
 
 //define pins used
 #define SONAR_FRONT D1
+#define IR_FRONT_RIGHT M1
+#define IR_FRONT_LEFT M3
 #define SONAR_LEFT D2
 #define SONAR_RIGHT D0
 #define SONAR_BACK D3
@@ -10,29 +20,36 @@
 #define MIN_SONAR 483
 #define NUM_SAMPLES 5
 
-#define MAX_MOTOR_SPEED 255
-#define MIN_MOTOR_SPEED 125
+//motor speeds for movement
 #define TURN_SPEED 150
 #define MOTOR_SPEED 200
 
-#define MOVE_TIME 200
+//max distance where data sees a wall
+#define WALL_DIST 17
+
+//movement times for 90 degree turns and 1 cell of movement
 #define TURN_TIME 750
 #define CELL_TIME 1550
 
+//constants denoting which way to turn
 #define LEFT 1
 #define RIGHT -1
 
-//directions Data can go
+//movemnts the robot can do
 #define UP_DIR 1
 #define RIGHT_DIR 2
 #define DOWN_DIR 3
 #define LEFT_DIR 4
 
-#define WALL_DIST 17
+//delay for reading button pushes
 #define BUTTON_TIME 100
 
-int path [16] = {0};
+//pathing vairables
+int path [16] = {0}; //when not localized the path is the movments Data makes 
+  //otherwise it is the movements Data needs to make
 int iter = 0;
+
+//map for localization
 int worldMap[7][7] = {
   {99, 99, 99, 99, 99, 99, 99},
   {99, 99, 99, 99, 99, 99, 99},
@@ -42,19 +59,24 @@ int worldMap[7][7] = {
   {99, 99, 99, 99, 99, 99, 99},
   {99, 99, 99, 99, 99, 99, 99}
 };
+
+//input topological map
 int currentMap [4][4] = {
   {9, 7, 15, 11},
   {10, 15, 15, 10},
   {8, 5, 5, 2},
   {14, 15, 15, 14}
 };
+
+//wavefront map for when Data localizes
 int wavefrontMap[4][4] = {
   {99, 99, 99, 99},
   {99, 99, 99, 99},
   {99, 99, 99, 99},
   {99, 99, 99, 99}
 };
-int x = 3, y = 3;
+
+int x = 3, y = 3; //start Data in the middle of the 7x7 map
 int startVal;
 int goalX = 0, goalY = 0;
 
@@ -77,7 +99,6 @@ void setup() {
   Robot.stroke(0, 0, 0);
   getEndPoint();
   printMap(worldMap);
-  bool walls[4] = {0};
   addMap(x, y);
   localized = localize(x, y);
   if (localized) {
@@ -91,7 +112,7 @@ void setup() {
 
 void loop() {
   Robot.clearScreen();
-  //switch based off of the movements in the path
+
   int moves[4] = { 0};
   findMoves(worldMap[y][x], moves);
   int dir;
@@ -100,9 +121,9 @@ void loop() {
   } else {
     dir = path[iter++];
   }
+  //end case
   if(dir==0){
-    Robot.clearScreen();
-    Robto.text("arrived at goal");
+    Robot.text("arrived at goal",1,1);
     while(1);
   }
   switch (dir) {
@@ -181,6 +202,8 @@ void loop() {
   }
   moveCell();
   orientation = dir;
+
+  
   if (!localized) {
     printMap(worldMap);
     path[iter++] = dir;
@@ -211,6 +234,7 @@ void loop() {
     }
   }
 }
+
 /*
    recursively creates the wavefront map
    x - x coordinate
@@ -376,12 +400,18 @@ void turn90(int direc) {
   delay(500);
 }
 
+/*
+ * returns the topological representation of square
+ * 
+ * walls - a boolean array of whether there are walls in each direction
+ */
 int defineSquare(bool walls[]) {
   bool upWall = walls[0];
   bool downWall = walls[1];
   bool leftWall = walls[2];
   bool rightWall = walls[3];
-  int value = 15;
+  int value;
+  
   if (leftWall && rightWall && downWall && upWall) {
     value = 15;
   } else if (leftWall && rightWall && downWall && !upWall) {
@@ -451,35 +481,14 @@ void detectWalls(int wallDist[], bool walls[]) {
   }
 
 }
+
+
 /*
-   polls a sonar pin
-
-   pin - the pin that is being polled
-*/
-double checkSonarPin(int pin) {
-  double output = 0;
-  for (int i = 0; i < NUM_SAMPLES; i++) {
-    int value;
-    pinMode(pin, OUTPUT);//set the PING pin as an output
-    Robot.digitalWrite(pin, LOW);//set the PING pin low first
-    delayMicroseconds(2);//wait 2 us
-    Robot.digitalWrite(pin, HIGH);//trigger sonar by a 2 us HIGH PULSE
-    delayMicroseconds(5);//wait 5 us
-    Robot.digitalWrite(pin, LOW);//set pin low first again
-    pinMode(pin, INPUT);//set pin as input with duration as reception time
-    value = pulseIn(pin, HIGH);//measures how long the pin is high
-
-    value = .0111 * value - 0.8107;
-    output += value;
-    delay(5);
-  }
-  output = output / NUM_SAMPLES;
-  if (output <= 0) {
-    output = 9998; // low output is set to a very large distance
-  }
-  return output;
-}
-
+ * finds the true/false value of all the squares surrounding Data
+ * 
+ * returns the current value of the square
+ * walls - an empty array that will be populated with the true/false values about which walls surround Data
+ */
 int findValue(bool walls[]) {
   int up = checkSonarPin(SONAR_FRONT);
   int left = checkSonarPin(SONAR_LEFT);
@@ -519,6 +528,12 @@ int findValue(bool walls[]) {
 }
 
 
+/*
+ * adds a point to the currentMap
+ * 
+ * x - the x coordinate to add
+ * y - the y coordinate to add
+ */
 void addMap(int x, int y) {
 
   bool walls[4] = {0};
@@ -541,24 +556,29 @@ void addMap(int x, int y) {
 
 }
 
+/*
+ * tries to localize Data
+ * 
+ * xIn - x coordinate
+ * yIn - y coordinate
+ */
 bool localize(int xIn, int yIn) {
+  //can have 16 possible locations
   int possPos[32] = { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
   int numPos = 0;
   int iter2 = 0;
+  //find all spots on the map that match the current position
   for (int i = 0; i < 4; i++) {
     for (int j = 0; j < 4; j++) {
       if (currentMap[j][i] == worldMap[yIn][xIn]) {
         possPos[iter2++] = i;
         possPos[iter2++] = j;
         numPos++;
-        Robot.debugPrint(1, 15 * (i + 1), 9 * (j + 1));
-      } else {
-        Robot.debugPrint(0, 15 * (i + 1), 9 * (j + 1));
       }
     }
   }
-  while (Robot.keyboardRead() != BUTTON_MIDDLE);
-  Robot.clearScreen();
+
+  //back trace through all the movements and remove points that don't match previous values
   iter2 = iter - 1;
   while (numPos > 1 && iter2 >= 0) {
     for (int i = 0; i < 32; i += 2) {
@@ -567,10 +587,6 @@ bool localize(int xIn, int yIn) {
       }
       int xy[2];
       backTrace(xy, iter2);
-      Robot.debugPrint(currentMap[possPos[i] + xy[1]][possPos[i + 1] + xy[0]]);
-      Robot.debugPrint(worldMap[yIn + xy[1]][xIn + xy[0]], 1, 10);
-      while (Robot.keyboardRead() != BUTTON_MIDDLE);
-      Robot.clearScreen();
       if (currentMap[possPos[i] + xy[1]][possPos[i + 1] + xy[0]] != worldMap[yIn + xy[1]][xIn + xy[0]]) {
         possPos[i] = -1;
         possPos[i + 1] = -1;
@@ -579,6 +595,7 @@ bool localize(int xIn, int yIn) {
     }
     iter2--;
   }
+  //if there is only 1 possible location we have localized
   if (numPos == 1) {
     int i = 0;
     while (possPos[i++] == -1);
@@ -586,9 +603,16 @@ bool localize(int xIn, int yIn) {
     y = possPos[i];
     return true;
   }
+  //otherwise return false
   return false;
 }
 
+/*
+ * back traces through past positions
+ * 
+ * out - the x,y coordinates that are at the end of the trace
+ * iter2 - what iter value to stop at (0 is the first position 1 is the next and so on and so on)
+ */
 void backTrace(int out[], int iter2) {
   int y = 0, x = 0;
   for (int i = iter; i >= iter2; i--) {
@@ -611,27 +635,6 @@ void backTrace(int out[], int iter2) {
   out[1] = y;
 }
 
-
-bool validDir(int x, int y, int dir) {
-  switch (dir) {
-    case UP_DIR:
-      return worldMap[y - 1][x] != 15 && worldMap[y - 1][x] != 99;
-      break;
-    case DOWN_DIR:
-      return worldMap[y + 1][x] != 15 && worldMap[y + 1][x] != 99;
-      break;
-    case LEFT_DIR:
-      return worldMap[y][x - 1] != 15 && worldMap[y][x - 1] != 99;
-      break;
-    case RIGHT_DIR:
-      return worldMap[y][x + 1] != 15 && worldMap[y][x + 1] != 99;
-      break;
-    default:
-      return true;
-      break;
-  }
-
-}
 
 /*
   finds all the valid moves that can be performed at the input x and y coordinate
@@ -677,4 +680,33 @@ void printMap(int input[][7]) {
   while (Robot.keyboardRead() != BUTTON_MIDDLE);
   Robot.clearScreen();
 }
+/*
+   polls a sonar pin
+
+   pin - the pin that is being polled
+*/
+double checkSonarPin(int pin) {
+  double output = 0;
+  for (int i = 0; i < NUM_SAMPLES; i++) {
+    int value;
+    pinMode(pin, OUTPUT);//set the PING pin as an output
+    Robot.digitalWrite(pin, LOW);//set the PING pin low first
+    delayMicroseconds(2);//wait 2 us
+    Robot.digitalWrite(pin, HIGH);//trigger sonar by a 2 us HIGH PULSE
+    delayMicroseconds(5);//wait 5 us
+    Robot.digitalWrite(pin, LOW);//set pin low first again
+    pinMode(pin, INPUT);//set pin as input with duration as reception time
+    value = pulseIn(pin, HIGH);//measures how long the pin is high
+
+    value = .0111 * value - 0.8107;
+    output += value;
+    delay(5);
+  }
+  output = output / NUM_SAMPLES;
+  if (output <= 0) {
+    output = 9998; // low output is set to a very large distance
+  }
+  return output;
+}
+
 
